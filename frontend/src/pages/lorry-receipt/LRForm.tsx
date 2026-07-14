@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { api, getNextNumber } from '../../lib/api';
 import { LorryReceipt, Customer, Vehicle, Driver, CompanySettings, GoodsLine, NavState } from '../../types';
 import LRPdfPreview from './LRPdfPreview';
+import html2pdf from 'html2pdf.js';
 import {
-  Save, Printer, ChevronDown, ChevronUp, Plus, Trash2, ArrowLeft, Eye, FileText
+  Save, Printer, ChevronDown, ChevronUp, Plus, Trash2, ArrowLeft, Eye, FileText, Download
 } from 'lucide-react';
 
 const emptyGoods = (): GoodsLine => ({
@@ -351,6 +352,21 @@ export default function LRForm({ editId, onNav }: Props) {
     setExpanded(e => ({ ...e, [key]: !e[key] }));
   }
 
+  const downloadPDF = () => {
+    const element = document.getElementById('lr-pdf-preview-container') || document.getElementById('lr-pdf-preview-container-hidden');
+    if (!element) return;
+    
+    const opt = {
+      margin:       0,
+      filename:     `LR_${form.lr_number || 'New'}.pdf`,
+      image:        { type: 'jpeg', quality: 1 },
+      html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 },
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+  };
+
   const inputClass = "form-input";
   const labelClass = "form-label";
 
@@ -379,6 +395,10 @@ export default function LRForm({ editId, onNav }: Props) {
           <button onClick={() => window.print()} className="btn-secondary">
             <Printer size={15} />
             Print
+          </button>
+          <button onClick={downloadPDF} className="btn-secondary text-brand hover:text-brand-dark border-brand/20 hover:border-brand/40 bg-brand/5 hover:bg-brand/10 transition-colors">
+            <Download size={15} />
+            Download PDF
           </button>
           <button onClick={() => handleSave('in-transit')} disabled={saving} className="btn-primary">
             <FileText size={15} />
@@ -733,15 +753,26 @@ export default function LRForm({ editId, onNav }: Props) {
         {/* PDF Preview Panel */}
         {showPreview && (
           <div className="w-full overflow-y-auto bg-gray-200 p-6">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-xs text-gray-400 text-center mb-3 font-medium">LIVE PREVIEW — updates as you type</div>
-              <div className="shadow-2xl rounded-xl overflow-hidden print-area">
-                <LRPdfPreview lr={form} company={company} />
+            <div className="flex justify-center">
+              <div className="w-[794px]">
+                <div className="text-xs text-gray-400 text-center mb-3 font-medium">LIVE PREVIEW — updates as you type</div>
+                <div id="lr-pdf-preview-container" className="shadow-2xl overflow-hidden print-area bg-white w-[794px]">
+                  <LRPdfPreview lr={form} company={company} />
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Hidden PDF container for downloading when preview is closed */}
+      {!showPreview && (
+        <div className="fixed -left-[9999px] -top-[9999px]">
+          <div id="lr-pdf-preview-container-hidden" className="print-area bg-white w-[794px]">
+            <LRPdfPreview lr={form} company={company} />
+          </div>
+        </div>
+      )}
 
       {/* NEW CUSTOMER MODAL */}
       {showCustomerModal && (
