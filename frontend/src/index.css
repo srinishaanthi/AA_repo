@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #F5F7FA;
+    color: #1F2937;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input,
+  textarea,
+  select {
+    outline: none;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-gray-100;
+  }
+
+  .btn-primary {
+    @apply bg-brand text-white px-4 py-2 rounded-xl font-medium text-sm hover:bg-brand-dark transition-colors flex items-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-700 border border-gray-200 px-4 py-2 rounded-xl font-medium text-sm hover:bg-gray-50 transition-colors flex items-center gap-2;
+  }
+
+  .btn-ghost {
+    @apply text-gray-500 px-3 py-2 rounded-xl font-medium text-sm hover:bg-gray-100 transition-colors flex items-center gap-2;
+  }
+
+  .form-input {
+    @apply w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 bg-white focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all placeholder-gray-400;
+  }
+
+  .form-label {
+    @apply block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .table-th {
+    @apply text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 bg-gray-50;
+  }
+
+  .table-td {
+    @apply px-4 py-3 text-sm text-gray-700;
+  }
+}
+
+/* Sidebar */
+.sidebar-item {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-brand-light hover:text-brand transition-all cursor-pointer;
+}
+
+.sidebar-item.active {
+  @apply bg-brand-light text-brand;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}
+
+/* PDF preview */
+.pdf-preview {
+  font-family: 'Inter', sans-serif;
+  background: white;
+  color: #1F2937;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Print styles */
+@media print {
+  @page {
+    margin: 5mm;
+    size: A4 portrait;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 900px !important;
+    transform: scale(0.85);
+    transform-origin: top left;
+  }
+}
