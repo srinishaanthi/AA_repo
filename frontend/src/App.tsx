@@ -49,7 +49,7 @@ export default function App() {
     }
   }
 
-  const splitViewPages = ['invoice-create', 'invoice-edit'];
+  const splitViewPages: string[] = [];
   const isSplitView = splitViewPages.includes(nav.page);
 
   return (
