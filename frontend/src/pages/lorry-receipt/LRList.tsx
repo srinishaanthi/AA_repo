@@ -206,13 +206,6 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
                         <button
                           onClick={() => onNav({ page: 'lr-edit', id: lr.id })}
                           className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-brand transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => onNav({ page: 'lr-edit', id: lr.id })}
-                          className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-brand transition-colors"
                           title="Print"
                         >
                           <Printer size={15} />

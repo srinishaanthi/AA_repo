@@ -141,9 +141,20 @@ class QueryBuilder {
         let url = this.endpoint;
         let method = 'POST';
         
+        let bodyData = this._data;
+
         if (this._action === 'update') {
           method = 'PUT';
           url = `${this.endpoint}/${this._eq.id}`;
+          try {
+            const existingRes = await fetch(url);
+            if (existingRes.ok) {
+              const existing = await existingRes.json();
+              bodyData = { ...existing, ...this._data };
+            }
+          } catch (e) {
+            console.error('Failed to merge for update', e);
+          }
         } else if (this._action === 'delete') {
           method = 'DELETE';
           url = `${this.endpoint}/${this._eq.id}`;
@@ -152,7 +163,7 @@ class QueryBuilder {
         const res = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: ['POST', 'PUT'].includes(method) ? JSON.stringify(this._data) : undefined
+          body: ['POST', 'PUT'].includes(method) ? JSON.stringify(bodyData) : undefined
         });
 
         if (!res.ok) throw new Error('Mutation failed');

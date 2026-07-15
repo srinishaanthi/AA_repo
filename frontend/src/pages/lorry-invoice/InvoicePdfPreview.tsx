@@ -95,6 +95,7 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
         .pdf-preview {
           width: 210mm;
           min-width: 210mm;
+          min-height: 297mm;
           margin: 0 auto;
           box-sizing: border-box;
           background: white;
@@ -130,9 +131,9 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
             }
             .pdf-preview {
               width: 210mm !important;
-              height: auto !important;
+              min-height: 297mm !important;
               margin: 0 auto !important;
-              padding: 5mm !important;
+              padding: 0 !important;
               box-sizing: border-box;
               background: white !important;
               page-break-after: avoid;
@@ -161,17 +162,17 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
           {/* Document Header Section */}
           <div className="relative w-full mb-4">
             {/* Branding Background Banner */}
-          <div className="absolute inset-0 z-0 bg-white overflow-hidden pointer-events-none">
-            <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full">
-              <polygon points="0,0 58,0 48,100 0,100" className="text-[var(--primary)]" fill="currentColor" />
-              <polygon points="60,0 65,0 55,100 50,100" className="text-[var(--secondary)]" fill="currentColor" />
-            </svg>
-          </div>
+            <div className="absolute inset-0 z-0 bg-white overflow-hidden pointer-events-none rounded-t-xl">
+              <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full">
+                <polygon points="0,0 62,0 52,100 0,100" className="text-[var(--primary)]" fill="currentColor" />
+                <polygon points="64,0 70,0 60,100 54,100" className="text-[var(--secondary)]" fill="currentColor" />
+              </svg>
+            </div>
 
             {/* Header Content */}
             <div className="relative z-10 flex justify-between items-stretch p-6 pb-6">
               {/* Left: Company Info */}
-              <div className="flex items-start gap-6 text-[var(--on-primary)] w-[60%] pr-4">
+              <div className="flex items-start gap-5 text-[var(--on-primary)] w-[62%] pr-4 relative z-10 -mt-2">
                 <div className="shrink-0 bg-white p-2 rounded-2xl h-20 w-20 flex items-center justify-center shadow-md">
                   {company?.logo_url ? (
                     <img alt="Logo" className="h-16 w-16 object-contain" src={company.logo_url} />
@@ -200,10 +201,10 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
               </div>
 
               {/* Right: Invoice Metadata */}
-              <div className="w-[40%] pl-2 pr-6 flex flex-col justify-center items-end text-[var(--on-surface)] pb-2 mt-4">
+              <div className="w-[38%] pl-2 pr-6 flex flex-col justify-center items-end text-[var(--on-surface)] pb-2 mt-4 relative z-10">
                 <div className="inline-block">
                   <h2 className="font-manrope text-[28px] font-bold text-[var(--primary)] text-center mb-6 mr-4 tracking-wide">TAX <span className="text-[var(--secondary)]">INVOICE</span></h2>
-                  
+
                   <div className="grid grid-cols-[100px_10px_1fr] gap-x-3 gap-y-3 text-[13px] font-medium text-[var(--on-surface)]">
                     {invoice.invoice_number && (
                       <React.Fragment>
@@ -258,18 +259,18 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
           {/* Data Blocks Grid */}
           <div className="grid grid-cols-2 gap-3 mb-3">
             {/* Bill To Block */}
-        <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
-          <div className="relative">
-            {/* SVG Background Tab */}
-            <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-              <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-            </svg>
-            
-            <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]">person</span>
-              <span>CUSTOMER DETAILS / BILL TO</span>
-            </div>
-          </div>
+            <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
+              <div className="relative">
+                {/* SVG Background Tab */}
+                <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
+                  <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
+                </svg>
+
+                <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">person</span>
+                  <span>CUSTOMER DETAILS / BILL TO</span>
+                </div>
+              </div>
               <div className="p-3 grid grid-cols-[120px_1fr] gap-y-1.5 text-sm">
                 {invoice.customer_name && (
                   <>
@@ -316,18 +317,18 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
             </div>
 
             {/* Consignee Block */}
-        <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
-          <div className="relative">
-            {/* SVG Background Tab */}
-            <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-              <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-            </svg>
-            
-            <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-              <span>CONSIGNEE DETAILS</span>
-            </div>
-          </div>
+            <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
+              <div className="relative">
+                {/* SVG Background Tab */}
+                <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
+                  <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
+                </svg>
+
+                <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">local_shipping</span>
+                  <span>CONSIGNEE DETAILS</span>
+                </div>
+              </div>
               <div className="p-3 grid grid-cols-[120px_1fr] gap-y-1.5 text-sm">
                 <div className="font-bold text-[var(--on-surface-variant)]">Consignee Name</div>
                 <div className="text-[var(--on-surface)]">{invoice.consignee_name || 'Same as Billing'}</div>
@@ -378,28 +379,32 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
                   if (items.length === 0) items.push({} as any);
 
                   return items.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-[var(--surface-bright)] border-b border-gray-100 last:border-0">
-                      <td className="py-2 px-3 text-center font-medium">
-                        <div>{item.lr_number || ''}</div>
-                        <div className="text-[11px] text-[var(--on-surface-variant)] mt-1">{item.lr_date ? formatDate(item.lr_date) : ''}</div>
-                      </td>
-                      <td className="py-2 px-3 text-center text-xs font-bold">{item.vehicle_number || ''}</td>
-                      <td className="py-2 px-3 text-center">
-                        <div>{item.from_location || ''}</div>
-                        {item.from_location && item.to_location && <div className="text-[var(--on-surface-variant)] text-xs my-0.5">to</div>}
-                        <div>{item.to_location || ''}</div>
-                      </td>
-                      <td className="py-2 px-3 text-xs text-[var(--on-surface-variant)]">
+                    <tr key={idx} className="hover:bg-[var(--surface-bright)]">
+                      {idx === 0 && (
+                        <>
+                          <td className="py-2 px-3 text-center align-middle font-medium" rowSpan={items.length}>
+                            <div>{item.lr_number || ''}</div>
+                            <div className="text-[11px] text-[var(--on-surface-variant)] mt-1">{item.lr_date ? formatDate(item.lr_date) : ''}</div>
+                          </td>
+                          <td className="py-2 px-3 text-center align-middle text-xs font-bold" rowSpan={items.length}>{item.vehicle_number || ''}</td>
+                          <td className="py-2 px-3 text-center align-middle" rowSpan={items.length}>
+                            <div>{item.from_location || ''}</div>
+                            {item.from_location && item.to_location && <div className="text-[var(--on-surface-variant)] text-xs my-0.5">to</div>}
+                            <div>{item.to_location || ''}</div>
+                          </td>
+                        </>
+                      )}
+                      <td className="py-2 px-3 text-xs text-[var(--on-surface-variant)] align-top">
                         {item.description || ''}
                       </td>
-                      <td className="py-2 px-3 text-center">
+                      <td className="py-2 px-3 text-center align-top whitespace-nowrap">
                         {item.packages || ''}
                       </td>
-                      <td className="py-2 px-3 text-center">
-                        {item.actual_weight ? `${item.actual_weight} kg` : ''}
+                      <td className="py-2 px-3 text-center align-top whitespace-nowrap">
+                        {item.actual_weight ? `${item.actual_weight}\u00A0kg` : ''}
                       </td>
-                      <td className="py-2 px-3 text-center font-bold">
-                        {item.chargeable_weight ? `${item.chargeable_weight} kg` : ''}
+                      <td className="py-2 px-3 text-center font-bold align-top whitespace-nowrap">
+                        {item.chargeable_weight ? `${item.chargeable_weight}\u00A0kg` : ''}
                       </td>
                     </tr>
                   ));
@@ -423,18 +428,18 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
             {/* Left Column: Bank & Terms */}
             <div className="flex flex-col gap-4">
               {/* Bank Details Block */}
-        <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
-          <div className="relative">
-            {/* SVG Background Tab */}
-            <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-              <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-            </svg>
-            
-            <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]">account_balance</span>
-              <span>BANK DETAILS</span>
-            </div>
-          </div>
+              <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
+                <div className="relative">
+                  {/* SVG Background Tab */}
+                  <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
+                    <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
+                  </svg>
+
+                  <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px]">account_balance</span>
+                    <span>BANK DETAILS</span>
+                  </div>
+                </div>
                 <div className="p-3 grid grid-cols-[100px_1fr] gap-y-1 text-sm relative z-10">
                   <div className="font-bold text-[var(--on-surface-variant)]">Account Name</div>
                   <div className="text-[var(--on-surface)] font-bold">{activeBank.account_name}</div>
@@ -480,75 +485,75 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
             </div>
 
             {/* Right Column: Financials */}
-        {/* Charges Block */}
-        <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white h-full flex flex-col">
-          <div className="relative">
-            {/* SVG Background Tab */}
-            <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-              <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-            </svg>
-            
-            <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px]">request_quote</span>
-                <span>CHARGES</span>
-              </div>
-              <div className="text-right">
-                <span className="bg-[#04151c] text-white px-3 py-0.5 rounded text-[10px]">Amount (₹)</span>
-              </div>
-            </div>
-          </div>
-                <div className="p-0 text-sm mt-1">
-                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                    <span className="text-[var(--on-surface-variant)]">Freight Charge</span>
-                    <span className="text-[var(--on-surface)] text-right">{fmt(invoice.freight_charge)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                    <span className="text-[var(--on-surface-variant)]">Loading Charge</span>
-                    <span className="text-[var(--on-surface)] text-right">{fmt(invoice.loading_charge)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                    <span className="text-[var(--on-surface-variant)]">Unloading Charge</span>
-                    <span className="text-[var(--on-surface)] text-right">{fmt(invoice.unloading_charge)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                    <span className="text-[var(--on-surface-variant)]">Toll Charge</span>
-                    <span className="text-[var(--on-surface)] text-right">{fmt(invoice.toll_charge)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                    <span className="text-[var(--on-surface-variant)]">Detention/Halting</span>
-                    <span className="text-[var(--on-surface)] text-right">{fmt((Number(invoice.detention_charge) || 0) + (Number(invoice.halting_charge) || 0))}</span>
-                  </div>
-                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                    <span className="text-[var(--on-surface-variant)]">Other Charges</span>
-                    <span className="text-[var(--on-surface)] text-right">{fmt(invoice.other_charges)}</span>
-                  </div>
+            {/* Charges Block */}
+            <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white h-full flex flex-col">
+              <div className="relative">
+                {/* SVG Background Tab */}
+                <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
+                  <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
+                </svg>
 
-                  {/* Sub Total */}
-                  <div className="flex justify-between py-1.5 px-3 bg-[var(--surface)] text-xs font-bold border-y border-[var(--outline-variant)]">
-                    <span className="text-[var(--primary)]">Sub Total</span>
-                    <span className="text-[var(--primary)] text-right">{fmt(subTotal)}</span>
+                <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px]">request_quote</span>
+                    <span>CHARGES</span>
                   </div>
-
-                  {/* Taxes */}
-                  {isIntraState ? (
-                    <>
-                      <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
-                        <span className="text-[var(--on-surface-variant)]">CGST @ {cgstRate}%</span>
-                        <span className="text-[var(--on-surface)] text-right">{fmt(cgstAmt)}</span>
-                      </div>
-                      <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
-                        <span className="text-[var(--on-surface-variant)]">SGST @ {sgstRate}%</span>
-                        <span className="text-[var(--on-surface)] text-right">{fmt(sgstAmt)}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
-                      <span className="text-[var(--on-surface-variant)]">IGST @ {igstRate}%</span>
-                      <span className="text-[var(--on-surface)] text-right">{fmt(igstAmt)}</span>
-                    </div>
-                  )}
+                  <div className="text-right">
+                    <span className="bg-[#04151c] text-white px-3 py-0.5 rounded text-[10px]">Amount (₹)</span>
+                  </div>
                 </div>
+              </div>
+              <div className="p-0 text-sm mt-1">
+                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
+                  <span className="text-[var(--on-surface-variant)]">Freight Charge</span>
+                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.freight_charge)}</span>
+                </div>
+                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
+                  <span className="text-[var(--on-surface-variant)]">Loading Charge</span>
+                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.loading_charge)}</span>
+                </div>
+                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
+                  <span className="text-[var(--on-surface-variant)]">Unloading Charge</span>
+                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.unloading_charge)}</span>
+                </div>
+                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
+                  <span className="text-[var(--on-surface-variant)]">Toll Charge</span>
+                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.toll_charge)}</span>
+                </div>
+                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
+                  <span className="text-[var(--on-surface-variant)]">Detention/Halting</span>
+                  <span className="text-[var(--on-surface)] text-right">{fmt((Number(invoice.detention_charge) || 0) + (Number(invoice.halting_charge) || 0))}</span>
+                </div>
+                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
+                  <span className="text-[var(--on-surface-variant)]">Other Charges</span>
+                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.other_charges)}</span>
+                </div>
+
+                {/* Sub Total */}
+                <div className="flex justify-between py-1.5 px-3 bg-[var(--surface)] text-xs font-bold border-y border-[var(--outline-variant)]">
+                  <span className="text-[var(--primary)]">Sub Total</span>
+                  <span className="text-[var(--primary)] text-right">{fmt(subTotal)}</span>
+                </div>
+
+                {/* Taxes */}
+                {isIntraState ? (
+                  <>
+                    <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
+                      <span className="text-[var(--on-surface-variant)]">CGST @ {cgstRate}%</span>
+                      <span className="text-[var(--on-surface)] text-right">{fmt(cgstAmt)}</span>
+                    </div>
+                    <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
+                      <span className="text-[var(--on-surface-variant)]">SGST @ {sgstRate}%</span>
+                      <span className="text-[var(--on-surface)] text-right">{fmt(sgstAmt)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
+                    <span className="text-[var(--on-surface-variant)]">IGST @ {igstRate}%</span>
+                    <span className="text-[var(--on-surface)] text-right">{fmt(igstAmt)}</span>
+                  </div>
+                )}
+              </div>
               {/* Grand Total */}
               <div className="flex justify-between items-center py-2 px-3 bg-[var(--primary-container)] text-[var(--on-primary-container)] font-manrope text-lg rounded-b mt-auto">
                 <span className="font-bold">GRAND TOTAL</span>
@@ -567,8 +572,39 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
             </div>
           )}
 
-          <div className="text-center text-xs text-gray-500 italic py-4 mt-2 border-t border-dashed border-[var(--outline-variant)]">
-            This is a computer-generated invoice and does not require a signature
+          <div className="grid grid-cols-3 gap-6 pt-16 pb-2 mt-4 border-t border-dashed border-[var(--outline-variant)] text-[11px] text-[var(--on-surface)]">
+            {/* Column 1: Consignor */}
+            <div className="flex flex-col justify-end text-center">
+              <div className="border-t border-black w-4/5 mx-auto pt-1 font-bold">
+                Consignor’s Signature & Seal
+              </div>
+            </div>
+
+            {/* Column 2: Logistics */}
+            <div className="flex flex-col justify-end text-center">
+              <div className="border-t border-black w-4/5 mx-auto pt-1 font-bold uppercase">
+                For {company?.company_name || 'A & A LOGISTICS'}
+              </div>
+              <div className="font-medium mt-0.5">Authorized Signatory</div>
+            </div>
+
+            {/* Column 3: Receiver */}
+            <div className="flex flex-col justify-end text-left text-[10px] pl-4">
+              <div className="font-bold text-[11px] mb-1">Receiver’s Acknowledgement</div>
+              <div className="mb-3 text-[9.5px]">Goods Received in Good Condition (Subject to Verification)</div>
+              <div className="flex items-end gap-2 mb-1.5">
+                <span className="w-12">Name:</span>
+                <span className="border-b border-black flex-1"></span>
+              </div>
+              <div className="flex items-end gap-2 mb-1.5">
+                <span className="w-12">Signature:</span>
+                <span className="border-b border-black flex-1"></span>
+              </div>
+              <div className="flex items-end gap-2">
+                <span className="w-12">Date:</span>
+                <span className="border-b border-black flex-1"></span>
+              </div>
+            </div>
           </div>
 
         </div>

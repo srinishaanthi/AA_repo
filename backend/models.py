@@ -150,6 +150,8 @@ class LorryInvoice(Base):
     gst_rate = Column(Float, default=0.0)
     gst_amount = Column(Float, default=0.0)
     total_amount = Column(Float, default=0.0)
+    amount_received = Column(Float, default=0.0)
+    amount_pending = Column(Float, default=0.0)
     status = Column(String, default="pending")
     remarks = Column(Text, nullable=True)
     terms = Column(Text, nullable=True)

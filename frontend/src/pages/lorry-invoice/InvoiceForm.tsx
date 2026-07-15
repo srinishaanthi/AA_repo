@@ -4,7 +4,7 @@ import { LorryInvoice, LorryReceipt, Customer, CompanySettings, Bank, InvoiceGoo
 import InvoicePdfPreview from './InvoicePdfPreview';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
-import { Save, Printer, ArrowLeft, Eye, Plus, Trash2, ChevronDown, ChevronUp, FileText, Download } from 'lucide-react';
+import { Save, Printer, ArrowLeft, Eye, Plus, Trash2, ChevronDown, ChevronUp, FileText, Download, Lock } from 'lucide-react';
 
 const emptyGoods = (): any => ({ lr_number: '', lr_date: '', vehicle_number: '', from_location: '', to_location: '', description: '', packages: '', actual_weight: '', chargeable_weight: '' });
 
@@ -100,6 +100,34 @@ export default function InvoiceForm({ editId, onNav }: Props) {
     }));
   }
 
+  function selectLRForGoods(i: number, lrId: string) {
+    const lr = lrs.find(l => l.id === lrId);
+    if (!lr) return;
+    
+    const goodsList = lr.goods || [];
+    const material_description = goodsList.map((g: any) => g.description).join(', ');
+    const no_of_packages = goodsList.reduce((acc: number, g: any) => acc + (Number(g.packages) || 0), 0);
+    const actual_weight = goodsList.reduce((acc: number, g: any) => acc + (Number(g.actual_weight) || 0), 0);
+    const chargeable_weight = goodsList.reduce((acc: number, g: any) => acc + (Number(g.charged_weight) || 0), 0);
+
+    setForm(f => {
+      const g = [...(f.goods || [])];
+      g[i] = {
+        ...g[i],
+        lr_number: lr.lr_number,
+        lr_date: lr.date || '',
+        vehicle_number: lr.vehicle_number || '',
+        from_location: lr.from_location || '',
+        to_location: lr.to_location || '',
+        description: material_description,
+        packages: no_of_packages ? String(no_of_packages) : '',
+        actual_weight: actual_weight ? String(actual_weight) : '',
+        chargeable_weight: chargeable_weight ? String(chargeable_weight) : '',
+      };
+      return { ...f, goods: g };
+    });
+  }
+
   function setF(field: keyof LorryInvoice, val: unknown) { setForm(f => ({ ...f, [field]: val })); }
 
   function updateGoods(i: number, field: keyof InvoiceGoodsLine, val: string) {
@@ -117,6 +145,7 @@ export default function InvoiceForm({ editId, onNav }: Props) {
     (Number(form.other_charges) || 0);
   const gstAmt = (subTotal * (Number(form.gst_rate) || 0)) / 100;
   const grandTotal = subTotal + gstAmt;
+  const amountPending = grandTotal - (Number(form.amount_received) || 0);
 
   const customerState = (form.customer_state || '').trim().toLowerCase();
   const isIntraState = form.party_code === 'cgst_sgst' ||
@@ -125,7 +154,7 @@ export default function InvoiceForm({ editId, onNav }: Props) {
   async function handleSave(status = form.status) {
     if (!form.invoice_number) return;
     setSaving(true);
-    const payload = { ...form, gst_amount: gstAmt, total_amount: grandTotal, status, updated_at: new Date().toISOString() };
+    const payload = { ...form, gst_amount: gstAmt, total_amount: grandTotal, amount_pending: amountPending, amount_received: Number(form.amount_received) || 0, status, updated_at: new Date().toISOString() };
     let error;
     if (editId) ({ error } = await api.from('lorry_invoices').update(payload).eq('id', editId));
     else ({ error } = await api.from('lorry_invoices').insert([payload]));
@@ -175,13 +204,44 @@ export default function InvoiceForm({ editId, onNav }: Props) {
     }
   };
 
+  const saveNewCustomer = async () => {
+    if (!form.customer_name) {
+      alert('Please enter a Customer Name first.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error } = await api.from('customers').insert({
+        name: form.customer_name,
+        gstin: form.customer_gstin || null,
+        state: form.customer_state || null,
+        contact_person: form.customer_contact_person || null,
+        phone: form.customer_phone || null,
+        address: form.customer_address || null,
+        type: 'Customer'
+      });
+      if (error) throw error;
+      await loadMaster();
+      if (data && data.length > 0) {
+        setForm(f => ({ ...f, customer_id: data[0].id }));
+      } else if (data) {
+        setForm(f => ({ ...f, customer_id: (data as any).id }));
+      }
+      alert('Customer saved to master successfully!');
+      setEditBillTo(false);
+    } catch (err: any) {
+      alert('Failed to save customer: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const secs = [
     { key: 'basic', label: 'Invoice Details' },
     { key: 'billto', label: 'Bill To' },
-    { key: 'transport', label: 'Transport Details' },
-    { key: 'goods', label: 'Goods' },
+    { key: 'transport', label: 'Transport Details & Items' },
     { key: 'charges', label: 'Charges' },
-    { key: 'remarks', label: 'Remarks & Terms' },
+    { key: 'remarks', label: 'Terms & Conditions' },
   ];
 
   return (
@@ -259,19 +319,50 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                           <input type="date" className={inp} value={form.date || ''} onChange={e => setF('date', e.target.value)} />
                         </div>
                         <div>
-                          <label className={lbl}>Select LR</label>
-                          <select className={inp} onChange={e => selectLR(e.target.value)} value={form.lr_id || ''}>
-                            <option value="">— Select LR to auto-fill —</option>
-                            {lrs.map(l => <option key={l.id} value={l.id}>{l.lr_number} — {l.consignee_name || ''}</option>)}
-                          </select>
-                        </div>
-                        <div>
                           <label className={lbl}>Branch</label>
                           <input list="branch-options" className={inp} value={form.branch || ''} onChange={e => setF('branch', e.target.value)} placeholder="Select or type..." />
                           <datalist id="branch-options">
                             <option value="Coimbatore" />
                             <option value="Chennai" />
                           </datalist>
+                        </div>
+                        <div>
+                          <label className={lbl}>Auto-fill from LR</label>
+                          <select 
+                            className={inp} 
+                            value={form.lr_number || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setF('lr_number', val);
+                              if (val) {
+                                const lr = lrs.find(x => x.lr_number === val);
+                                if (lr) {
+                                  let matchCust = customers.find(c => c.name && lr.consignor_name && c.name.toLowerCase().trim() === lr.consignor_name.toLowerCase().trim());
+                                  setForm(f => ({
+                                    ...f,
+                                    lr_number: val,
+                                    vehicle_number: lr.vehicle_number || f.vehicle_number,
+                                    customer_id: matchCust ? matchCust.id : '',
+                                    customer_name: lr.consignor_name || f.customer_name,
+                                    customer_phone: matchCust ? (matchCust.phone || '') : (lr.consignor_phone || f.customer_phone),
+                                    customer_address: matchCust ? (matchCust.address || '') : (lr.consignor_address || f.customer_address),
+                                    customer_gstin: matchCust ? (matchCust.gstin || '') : f.customer_gstin,
+                                    customer_state: matchCust ? (matchCust.state || '') : f.customer_state,
+                                    customer_contact_person: matchCust ? (matchCust.contact_person || '') : f.customer_contact_person,
+                                    consignor_name: lr.consignor_name || f.consignor_name,
+                                    consignor_address: lr.consignor_address || f.consignor_address,
+                                    consignor_phone: lr.consignor_phone || f.consignor_phone,
+                                    consignee_name: lr.consignee_name || f.consignee_name,
+                                    consignee_address: lr.consignee_address || f.consignee_address,
+                                    consignee_phone: lr.consignee_phone || f.consignee_phone,
+                                  }));
+                                }
+                              }
+                            }}
+                          >
+                            <option value="">— Select LR —</option>
+                            {lrs.map(l => <option key={l.id} value={l.lr_number}>{l.lr_number} ({l.consignor_name || 'No Name'})</option>)}
+                          </select>
                         </div>
                       </div>
                     )}
@@ -304,44 +395,66 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                           </select>
                         </div>
                         {!editBillTo ? (
-                          <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
-                            <div className="font-semibold text-gray-900">{form.customer_name || 'No Customer Selected'}</div>
-                            {form.customer_gstin && <div className="text-gray-500 mt-1"><span className="text-gray-400">GSTIN:</span> {form.customer_gstin}</div>}
-                            {form.customer_phone && <div className="text-gray-500"><span className="text-gray-400">Phone:</span> {form.customer_phone}</div>}
-                            {(form.customer_address || form.customer_state) && (
-                              <div className="text-gray-500 mt-1">
-                                <span className="text-gray-400">Address:</span> {form.customer_address} {form.customer_state ? `, ${form.customer_state}` : ''}
+                          <div className="mt-3 p-4 bg-gray-50 border border-gray-100 rounded-xl text-sm">
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                              <div className="col-span-2">
+                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Customer Name</span>
+                                <div className="font-semibold text-gray-900 text-base">{form.customer_name || '—'}</div>
                               </div>
-                            )}
-                            {form.customer_contact_person && <div className="text-gray-500 mt-1"><span className="text-gray-400">Contact Person:</span> {form.customer_contact_person}</div>}
+                              <div>
+                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">GSTIN</span>
+                                <div className="text-gray-700 font-medium">{form.customer_gstin || '—'}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Mobile / Phone</span>
+                                <div className="text-gray-700 font-medium">{form.customer_phone || '—'}</div>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Billing Address</span>
+                                <div className="text-gray-700 font-medium">
+                                  {form.customer_address || form.customer_state ? (
+                                    <>{form.customer_address} {form.customer_state ? `, ${form.customer_state}` : ''}</>
+                                  ) : '—'}
+                                </div>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Contact Person</span>
+                                <div className="text-gray-700 font-medium">{form.customer_contact_person || '—'}</div>
+                              </div>
+                            </div>
                           </div>
                         ) : (
                           <div className="grid grid-cols-2 gap-3 mt-3 p-3 bg-gray-50 border border-brand/20 rounded-lg">
                             <div>
-                            <label className={lbl}>Customer Name</label>
-                            <input className={inp} value={form.customer_name || ''} onChange={e => setF('customer_name', e.target.value)} />
+                              <label className={lbl}>Customer Name</label>
+                              <input className={inp} value={form.customer_name || ''} onChange={e => setF('customer_name', e.target.value)} />
+                            </div>
+                            <div>
+                              <label className={lbl}>GSTIN</label>
+                              <input className={inp} value={form.customer_gstin || ''} onChange={e => setF('customer_gstin', e.target.value)} />
+                            </div>
+                            <div>
+                              <label className={lbl}>State</label>
+                              <input className={inp} value={form.customer_state || ''} onChange={e => setF('customer_state', e.target.value)} />
+                            </div>
+                            <div>
+                              <label className={lbl}>Contact Person</label>
+                              <input className={inp} value={form.customer_contact_person || ''} onChange={e => setF('customer_contact_person', e.target.value)} />
+                            </div>
+                            <div className="col-span-2">
+                              <label className={lbl}>Mobile / Phone</label>
+                              <input className={inp} value={form.customer_phone || ''} onChange={e => setF('customer_phone', e.target.value)} />
+                            </div>
+                            <div className="col-span-2">
+                              <label className={lbl}>Billing Address</label>
+                              <textarea rows={2} className={inp} value={form.customer_address || ''} onChange={e => setF('customer_address', e.target.value)} />
+                            </div>
+                            <div className="col-span-2 flex justify-end mt-2">
+                              <button onClick={saveNewCustomer} disabled={saving} className="btn-secondary text-xs bg-white border border-gray-200 hover:bg-gray-50 text-brand">
+                                + Save as New Customer
+                              </button>
+                            </div>
                           </div>
-                          <div>
-                            <label className={lbl}>GSTIN</label>
-                            <input className={inp} value={form.customer_gstin || ''} onChange={e => setF('customer_gstin', e.target.value)} />
-                          </div>
-                          <div>
-                            <label className={lbl}>State</label>
-                            <input className={inp} value={form.customer_state || ''} onChange={e => setF('customer_state', e.target.value)} />
-                          </div>
-                          <div>
-                            <label className={lbl}>Contact Person</label>
-                            <input className={inp} value={form.customer_contact_person || ''} onChange={e => setF('customer_contact_person', e.target.value)} />
-                          </div>
-                          <div className="col-span-2">
-                            <label className={lbl}>Mobile / Phone</label>
-                            <input className={inp} value={form.customer_phone || ''} onChange={e => setF('customer_phone', e.target.value)} />
-                          </div>
-                          <div className="col-span-2">
-                            <label className={lbl}>Billing Address</label>
-                            <textarea rows={2} className={inp} value={form.customer_address || ''} onChange={e => setF('customer_address', e.target.value)} />
-                          </div>
-                        </div>
                         )}
                         </div>
                         {/* Right Column: Consignor & Consignee */}
@@ -364,114 +477,202 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                     )}
 
                     {s.key === 'transport' && (
-                      <div className="grid grid-cols-2 gap-3 mt-4">
-                        <div><label className={lbl}>LR No.</label><input className={inp} value={form.lr_number || ''} onChange={e => setF('lr_number', e.target.value)} /></div>
-                        <div><label className={lbl}>LR Date</label><input type="date" className={inp} value={form.lr_date || ''} onChange={e => setF('lr_date', e.target.value)} /></div>
-                        <div><label className={lbl}>Vehicle No.</label><input className={inp} value={form.vehicle_number || ''} onChange={e => setF('vehicle_number', e.target.value)} /></div>
-                        <div><label className={lbl}>From</label><input className={inp} value={form.from_location || ''} onChange={e => setF('from_location', e.target.value)} /></div>
-                        <div><label className={lbl}>To</label><input className={inp} value={form.to_location || ''} onChange={e => setF('to_location', e.target.value)} /></div>
-                        <div><label className={lbl}>No. of Packages</label><input className={inp} value={form.no_of_packages || ''} onChange={e => setF('no_of_packages', e.target.value)} /></div>
-                        <div><label className={lbl}>Actual Weight</label><input className={inp} value={form.actual_weight || ''} onChange={e => setF('actual_weight', e.target.value)} /></div>
-                        <div><label className={lbl}>Chargeable Weight</label><input className={inp} value={form.chargeable_weight || ''} onChange={e => setF('chargeable_weight', e.target.value)} /></div>
-                        <div className="col-span-2"><label className={lbl}>Material Description</label><textarea rows={2} className={inp} value={form.material_description || ''} onChange={e => setF('material_description', e.target.value)} /></div>
-                      </div>
-                    )}
-
-                    {s.key === 'goods' && (
-                      <div className="mt-4 space-y-3">
-                        {(form.goods || []).map((g: any, i) => (
-                          <div key={i} className="bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-200">
-                            <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                              <span className="text-xs font-bold text-gray-700">Additional Item {i + 1}</span>
-                              <button onClick={() => setForm(f => ({ ...f, goods: (f.goods || []).filter((_, j) => j !== i) }))} className="text-red-400 hover:text-red-600">
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 pt-1">
-                              <div><label className={lbl}>LR No & Date</label>
-                                <div className="flex gap-2">
-                                  <input className={inp} placeholder="LR No" value={g.lr_number || ''} onChange={e => updateGoods(i, 'lr_number', e.target.value)} />
-                                  <input type="date" className={inp} value={g.lr_date || ''} onChange={e => updateGoods(i, 'lr_date', e.target.value)} />
+                      <div className="mt-4 overflow-x-auto border border-gray-200 rounded-lg">
+                        <table className="w-full text-sm text-left whitespace-nowrap">
+                          <thead className="bg-[#D9EAF5] text-gray-800 text-xs font-bold text-center border-b border-gray-200">
+                            <tr>
+                              <th className="py-2 px-1 w-36">LR No & Date</th>
+                              <th className="py-2 px-1 w-32">Vehicle No</th>
+                              <th className="py-2 px-1 w-32">From / To</th>
+                              <th className="py-2 px-1 min-w-[200px]">Material Description</th>
+                              <th className="py-2 px-1 w-16">Pkgs</th>
+                              <th className="py-2 px-1 w-20">Actual Wt</th>
+                              <th className="py-2 px-1 w-24">Chargeable Wt</th>
+                              <th className="py-2 px-1 w-10"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white">
+                            {/* Primary Transport Row */}
+                            <tr>
+                              <td className="p-2 border-r border-gray-100 align-middle max-w-[144px]" rowSpan={1 + (form.goods?.length || 0)}>
+                                <div className="flex flex-col items-center justify-center gap-1">
+                                  <input className="w-full text-center outline-none bg-transparent font-medium text-gray-800 placeholder-gray-400" placeholder="LR No" value={form.lr_number || ''} onChange={e => {
+                                    setF('lr_number', e.target.value);
+                                  }} />
+                                  <input type="date" className="w-full text-center outline-none bg-transparent text-[11px] text-gray-500" value={form.lr_date || ''} onChange={e => setF('lr_date', e.target.value)} />
                                 </div>
-                              </div>
-                              <div><label className={lbl}>Vehicle No</label><input className={inp} value={g.vehicle_number || ''} onChange={e => updateGoods(i, 'vehicle_number', e.target.value)} /></div>
-                              <div><label className={lbl}>From</label><input className={inp} value={g.from_location || ''} onChange={e => updateGoods(i, 'from_location', e.target.value)} /></div>
-                              <div><label className={lbl}>To</label><input className={inp} value={g.to_location || ''} onChange={e => updateGoods(i, 'to_location', e.target.value)} /></div>
-                              <div className="col-span-2"><label className={lbl}>Material Description</label><textarea rows={2} className={inp} value={g.description || ''} onChange={e => updateGoods(i, 'description', e.target.value)} /></div>
-                              <div><label className={lbl}>Packages</label><input type="number" className={inp} value={g.packages || ''} onChange={e => updateGoods(i, 'packages', e.target.value)} /></div>
-                              <div><label className={lbl}>Actual Wt (kg)</label><input type="number" className={inp} value={g.actual_weight || ''} onChange={e => updateGoods(i, 'actual_weight', e.target.value)} /></div>
-                              <div><label className={lbl}>Chargeable Wt (kg)</label><input type="number" className={inp} value={g.chargeable_weight || ''} onChange={e => updateGoods(i, 'chargeable_weight', e.target.value)} /></div>
-                            </div>
-                          </div>
-                        ))}
-                        <button onClick={() => setForm(f => ({ ...f, goods: [...(f.goods || []), emptyGoods()] }))} className="btn-ghost w-full justify-center border border-dashed border-gray-300 bg-white">
-                          <Plus size={14} /> Add Item
+                              </td>
+                              <td className="p-2 border-r border-gray-100 align-middle" rowSpan={1 + (form.goods?.length || 0)}>
+                                <input className="w-full text-center outline-none bg-transparent font-medium text-gray-800 pt-1 placeholder-gray-400" placeholder="Vehicle No" value={form.vehicle_number || ''} onChange={e => setF('vehicle_number', e.target.value)} />
+                              </td>
+                              <td className="p-2 border-r border-gray-100 text-center align-middle" rowSpan={1 + (form.goods?.length || 0)}>
+                                <input className="w-full text-center outline-none bg-transparent mb-1 text-gray-800 placeholder-gray-400" placeholder="From" value={form.from_location || ''} onChange={e => setF('from_location', e.target.value)} />
+                                <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">to</div>
+                                <input className="w-full text-center outline-none bg-transparent text-gray-800 placeholder-gray-400" placeholder="To" value={form.to_location || ''} onChange={e => setF('to_location', e.target.value)} />
+                              </td>
+                              <td className="p-2 border-b border-gray-100 align-top">
+                                <textarea rows={2} className="w-full outline-none bg-transparent resize-none text-gray-800 pt-1 placeholder-gray-400" placeholder="Description..." value={form.material_description || ''} onChange={e => setF('material_description', e.target.value)} />
+                              </td>
+                              <td className="p-2 border-b border-gray-100 align-top">
+                                <input type="number" className="w-full text-center outline-none bg-transparent text-gray-800 pt-1" value={form.no_of_packages || ''} onChange={e => setF('no_of_packages', e.target.value)} />
+                              </td>
+                              <td className="p-2 border-b border-gray-100 align-top">
+                                <input type="number" className="w-full text-center outline-none bg-transparent text-gray-800 pt-1" value={form.actual_weight || ''} onChange={e => setF('actual_weight', e.target.value)} />
+                              </td>
+                              <td className="p-2 border-b border-gray-100 align-top font-semibold">
+                                <input type="number" className="w-full text-center outline-none bg-transparent text-gray-900 pt-1 font-semibold" value={form.chargeable_weight || ''} onChange={e => setF('chargeable_weight', e.target.value)} />
+                              </td>
+                              <td className="p-2 border-b border-gray-100 text-center text-gray-300">
+                                <Lock size={14} className="mx-auto" title="Primary details cannot be deleted" />
+                              </td>
+                            </tr>
+                            {/* Goods Rows */}
+                            {(form.goods || []).map((g: any, i) => (
+                              <tr key={i}>
+                                {/* LR No, Vehicle, From/To are merged via rowSpan in primary row */}
+                                <td className="p-2 border-b border-gray-100 align-top">
+                                  <textarea rows={2} className="w-full outline-none bg-transparent resize-none text-gray-800 pt-1 placeholder-gray-400" placeholder="Description..." value={g.description || ''} onChange={e => updateGoods(i, 'description', e.target.value)} />
+                                </td>
+                                <td className="p-2 border-b border-gray-100 align-top">
+                                  <input type="number" className="w-full text-center outline-none bg-transparent text-gray-800 pt-1" value={g.packages || ''} onChange={e => updateGoods(i, 'packages', e.target.value)} />
+                                </td>
+                                <td className="p-2 border-b border-gray-100 align-top">
+                                  <input type="number" className="w-full text-center outline-none bg-transparent text-gray-800 pt-1" value={g.actual_weight || ''} onChange={e => updateGoods(i, 'actual_weight', e.target.value)} />
+                                </td>
+                                <td className="p-2 border-b border-gray-100 align-top font-semibold">
+                                  <input type="number" className="w-full text-center outline-none bg-transparent text-gray-900 pt-1 font-semibold" value={g.chargeable_weight || ''} onChange={e => updateGoods(i, 'chargeable_weight', e.target.value)} />
+                                </td>
+                                <td className="p-2 border-b border-gray-100 text-center">
+                                  <button onClick={() => setForm(f => ({ ...f, goods: (f.goods || []).filter((_, j) => j !== i) }))} className="text-red-400 hover:text-red-600 transition-colors">
+                                    <Trash2 size={14} className="mx-auto" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <datalist id="lr-options">
+                          {lrs.map(l => <option key={l.id} value={l.lr_number}>{l.consignee_name}</option>)}
+                        </datalist>
+                        <button onClick={() => setForm(f => ({ ...f, goods: [...(f.goods || []), emptyGoods()] }))} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-50 hover:bg-gray-100 text-brand text-sm font-semibold transition-colors border-t border-gray-200">
+                          <Plus size={16} /> Add Item Row
                         </button>
                       </div>
                     )}
 
                     {s.key === 'charges' && (
-                      <div className="space-y-3 mt-4">
-                        {([
-                          ['Freight Charges', 'freight_charge'],
-                          ['Loading Charges', 'loading_charge'],
-                          ['Unloading Charges', 'unloading_charge'],
-                          ['Halting Charges', 'halting_charge'],
-                          ['Toll Charges', 'toll_charge'],
-                          ['Detention Charges', 'detention_charge'],
-                          ['Other Charges', 'other_charges'],
-                        ] as [string, keyof LorryInvoice][]).map(([label, field]) => (
-                          <div key={field} className="flex items-center justify-between gap-4">
-                            <label className="text-sm text-gray-600 flex-1">{label}</label>
-                            <input type="number" className="form-input w-32 text-right" value={form[field] as number || ''} onChange={e => setF(field, Number(e.target.value))} />
-                          </div>
-                        ))}
-                        <div className="flex items-center justify-between gap-4 pt-2 border-t border-gray-100">
-                          <label className="text-sm text-gray-600 flex-1">GST Type</label>
-                          <select
-                            className="form-input w-32 text-right"
-                            value={form.party_code || (isIntraState ? 'cgst_sgst' : 'igst')}
-                            onChange={e => setF('party_code', e.target.value)}
-                          >
-                            <option value="cgst_sgst">CGST + SGST</option>
-                            <option value="igst">IGST</option>
-                          </select>
+                      <div className="mt-4 flex flex-col lg:flex-row gap-6">
+                        <div className="flex-1 overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                <th className="p-3 font-medium">Charge Details</th>
+                                <th className="p-3 font-medium w-48 text-right">Amount (₹)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                              {[
+                                { label: 'Freight Charges', field: 'freight_charge' as const },
+                                { label: 'Loading Charges', field: 'loading_charge' as const },
+                                { label: 'Unloading Charges', field: 'unloading_charge' as const },
+                                { label: 'Halting Charges', field: 'halting_charge' as const },
+                                { label: 'Toll Charges', field: 'toll_charge' as const },
+                                { label: 'Detention Charges', field: 'detention_charge' as const },
+                                { label: 'Other Charges', field: 'other_charges' as const },
+                              ].map(({ label, field }) => (
+                                <tr key={field} className="hover:bg-gray-50/50 transition-colors">
+                                  <td className="p-3 text-sm text-gray-700 font-medium">{label}</td>
+                                  <td className="p-2">
+                                    <input 
+                                      type="number" 
+                                      className="w-full text-right bg-transparent border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
+                                      value={form[field] as number || ''} 
+                                      onChange={e => setF(field, Number(e.target.value))} 
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 border-t border-gray-200">
+                                <td className="p-3 text-sm text-gray-700 font-medium">GST Type</td>
+                                <td className="p-2">
+                                  <select 
+                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
+                                    value={form.party_code || (isIntraState ? 'cgst_sgst' : 'igst')} 
+                                    onChange={e => setF('party_code', e.target.value)}
+                                  >
+                                    <option value="cgst_sgst">CGST + SGST</option>
+                                    <option value="igst">IGST</option>
+                                  </select>
+                                </td>
+                              </tr>
+                              <tr className="bg-gray-50">
+                                <td className="p-3 text-sm text-gray-700 font-medium">GST Rate (%)</td>
+                                <td className="p-2">
+                                  <select 
+                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
+                                    value={form.party_code || 0} 
+                                    onChange={e => setF('gst_rate', Number(e.target.value))}
+                                  >
+                                    {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
+                                  </select>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <label className="text-sm text-gray-600 flex-1">GST Rate (%)</label>
-                          <select className="form-input w-32 text-right" value={form.gst_rate || 0} onChange={e => setF('gst_rate', Number(e.target.value))}>
-                            {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
-                          </select>
-                        </div>
-                        <div className="bg-brand/5 border border-brand/20 rounded-xl p-3 space-y-1">
-                          <div className="flex justify-between text-sm"><span className="text-gray-500">Sub Total</span><span>₹{subTotal.toLocaleString('en-IN')}</span></div>
-                          {gstAmt > 0 && (
-                            isIntraState ? (
-                              <>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-500">CGST ({(form.gst_rate || 0) / 2}%)</span>
-                                  <span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-500">SGST ({(form.gst_rate || 0) / 2}%)</span>
-                                  <span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span>
-                                </div>
-                              </>
-                            ) : (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">IGST ({form.gst_rate}%)</span>
-                                <span>₹{gstAmt.toLocaleString('en-IN')}</span>
+                        
+                        <div className="lg:w-80 shrink-0">
+                          <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-2xl p-6 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                            <h4 className="text-slate-400 text-xs font-semibold mb-5 uppercase tracking-widest flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-brand"></span>
+                              Payment Summary
+                            </h4>
+                            <div className="space-y-3.5">
+                              <div className="flex justify-between text-sm items-center"><span className="text-slate-300">Sub Total</span><span className="font-medium text-base">₹{subTotal.toLocaleString('en-IN')}</span></div>
+                              {gstAmt > 0 && (
+                                isIntraState ? (
+                                  <>
+                                    <div className="flex justify-between text-sm"><span className="text-slate-400">CGST ({(form.gst_rate || 0) / 2}%)</span><span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span></div>
+                                    <div className="flex justify-between text-sm"><span className="text-slate-400">SGST ({(form.gst_rate || 0) / 2}%)</span><span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span></div>
+                                  </>
+                                ) : (
+                                  <div className="flex justify-between text-sm"><span className="text-slate-400">IGST ({form.gst_rate}%)</span><span>₹{gstAmt.toLocaleString('en-IN')}</span></div>
+                                )
+                              )}
+                            </div>
+                            
+                            <div className="mt-5 pt-5 border-t border-slate-700/50 space-y-4">
+                              <div className="flex justify-between items-end">
+                                <span className="text-slate-300 text-sm font-medium">Grand Total</span>
+                                <span className="text-2xl font-bold text-white tracking-tight">₹{grandTotal.toLocaleString('en-IN')}</span>
                               </div>
-                            )
-                          )}
-                          <div className="flex justify-between font-bold pt-1 border-t border-brand/20"><span>Grand Total</span><span className="text-brand text-lg">₹{grandTotal.toLocaleString('en-IN')}</span></div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-300 text-sm">Amount Received</span>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+                                  <input
+                                    type="number"
+                                    className="w-32 bg-slate-800/50 border border-slate-600 rounded-lg py-1.5 pl-7 pr-3 text-right text-white focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand text-sm transition-all"
+                                    value={form.amount_received || ''}
+                                    onChange={(e) => setF('amount_received', Number(e.target.value))}
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-center pt-2 border-t border-slate-700/50">
+                                <span className="text-brand-300 text-sm font-semibold">Pending Amount</span>
+                                <span className={`text-lg font-bold tracking-tight ${amountPending > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                  ₹{amountPending.toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
 
                     {s.key === 'remarks' && (
                       <div className="space-y-4 mt-4">
-                        <div><label className={lbl}>Remarks</label><textarea rows={3} className={inp} value={form.remarks || ''} onChange={e => setF('remarks', e.target.value)} /></div>
                         <div><label className={lbl}>Terms & Conditions</label><textarea rows={4} className={inp} value={form.terms || company?.terms || ''} onChange={e => setF('terms', e.target.value)} /></div>
                       </div>
                     )}

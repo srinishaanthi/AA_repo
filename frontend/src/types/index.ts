@@ -157,6 +157,8 @@ export interface LorryInvoice {
   gst_rate: number;
   gst_amount: number;
   total_amount: number;
+  amount_received: number;
+  amount_pending: number;
   status: string;
   remarks?: string;
   terms?: string;

@@ -193,6 +193,8 @@ class InvoiceBase(BaseModel):
     gst_rate: float = 0.0
     gst_amount: float = 0.0
     total_amount: float = 0.0
+    amount_received: float = 0.0
+    amount_pending: float = 0.0
     status: str = "pending"
     remarks: Optional[str] = None
     terms: Optional[str] = None
