@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api } from '../../lib/api';
 import { LorryInvoice, NavState } from '../../types';
-import { Plus, Search, Filter, Eye, Pencil, Printer, Trash2, Receipt, ChevronLeft, ChevronRight, IndianRupee } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Pencil, Printer, Trash2, Receipt, ChevronLeft, ChevronRight, IndianRupee, Download, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const PAGE_SIZE = 10;
 
@@ -23,6 +24,7 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
   const [loading, setLoading] = useState(true);
   const [paymentModal, setPaymentModal] = useState<{ id: string, invoiceNo: string, total: number, received: number, pending: number } | null>(null);
   const [savingPayment, setSavingPayment] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, [search, statusFilter, dateFilter, page]);
 
@@ -47,7 +49,18 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
   }
 
   async function handleStatusChange(id: string, newStatus: string) {
-    await api.from('lorry_invoices').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', id);
+    const inv = invoices.find(i => i.id === id);
+    const updates: any = { status: newStatus, updated_at: new Date().toISOString() };
+    
+    if (newStatus === 'paid' && inv) {
+      updates.amount_received = inv.total_amount || 0;
+      updates.amount_pending = 0;
+    } else if ((newStatus === 'draft' || newStatus === 'issued') && inv) {
+      updates.amount_received = 0;
+      updates.amount_pending = inv.total_amount || 0;
+    }
+
+    await api.from('lorry_invoices').update(updates).eq('id', id);
     load();
   }
 
@@ -67,6 +80,101 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
     load();
   }
 
+  function handleExport() {
+    const headers = ['INVOICE NO', 'DATE', 'CUSTOMER', 'LR NO', 'VEHICLE', 'TOTAL (Rs)', 'RECEIVED (Rs)', 'PENDING (Rs)', 'STATUS'];
+    const rows = invoices.map(inv => [
+      inv.invoice_number || '',
+      inv.date ? new Date(inv.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '',
+      inv.customer_name ? `"${inv.customer_name.replace(/"/g, '""')}"` : '',
+      inv.lr_number || '',
+      inv.vehicle_number || '',
+      inv.total_amount || 0,
+      inv.amount_received || 0,
+      inv.amount_pending || 0,
+      inv.status || ''
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `Lorry_Invoices_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function handleDownloadTemplate() {
+    const headers = ['INVOICE NO', 'DATE', 'CUSTOMER', 'LR NO', 'VEHICLE', 'TOTAL (Rs)', 'RECEIVED (Rs)', 'PENDING (Rs)', 'STATUS'];
+    const csvContent = headers.join(',') + '\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'Invoice_Import_Template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      if (json.length < 2) return alert('No data found in file.');
+      
+      const headers = (json[0] as string[]).map(h => String(h).trim());
+      const importedInvoices = [];
+      
+      for (let i = 1; i < json.length; i++) {
+        const row = json[i] as any[];
+        if (!row || row.length === 0 || row.every(val => val === null || val === undefined || val === '')) continue;
+        
+        const inv: any = { created_at: new Date().toISOString() };
+        
+        headers.forEach((h, index) => {
+          let val = row[index];
+          if (val === undefined || val === null || val === '') return;
+          
+          if (val instanceof Date) {
+            val = val.toISOString();
+          } else {
+            val = String(val).trim();
+          }
+
+          if (h === 'INVOICE NO') inv.invoice_number = val;
+          if (h === 'DATE') inv.date = new Date(val).toISOString();
+          if (h === 'CUSTOMER') inv.customer_name = val;
+          if (h === 'LR NO') inv.lr_number = val;
+          if (h === 'VEHICLE') inv.vehicle_number = val;
+          if (h === 'TOTAL (Rs)') inv.total_amount = Number(val) || 0;
+          if (h === 'RECEIVED (Rs)') inv.amount_received = Number(val) || 0;
+          if (h === 'PENDING (Rs)') inv.amount_pending = Number(val) || 0;
+          if (h === 'STATUS') inv.status = String(val).toLowerCase();
+        });
+        
+        if (inv.invoice_number) importedInvoices.push(inv);
+      }
+      
+      if (importedInvoices.length > 0) {
+        const { error } = await api.from('lorry_invoices').insert(importedInvoices);
+        if (error) throw error;
+        alert(`Successfully imported ${importedInvoices.length} invoices!`);
+        load();
+      } else {
+        alert('No valid invoices found to import.');
+      }
+    } catch (err: any) {
+      alert('Error importing file: ' + err.message);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
@@ -77,7 +185,10 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
           <p className="text-sm text-gray-400 mt-0.5">{total} total records</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn-secondary"><Receipt size={15} /> Export</button>
+          <input type="file" accept=".csv, .xls, .xlsx" className="hidden" ref={fileInputRef} onChange={handleImport} />
+          <button onClick={handleDownloadTemplate} className="btn-secondary" title="Download Template"><Download size={15} /> Template</button>
+          <button onClick={() => fileInputRef.current?.click()} className="btn-secondary" title="Import CSV"><Upload size={15} /> Import</button>
+          <button onClick={handleExport} className="btn-secondary"><Receipt size={15} /> Export</button>
           <button onClick={() => onNav({ page: 'invoice-create' })} className="btn-primary"><Plus size={16} /> New Invoice</button>
         </div>
       </div>
@@ -94,6 +205,7 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
             <option value="">All Status</option>
             <option value="draft">Draft</option>
             <option value="issued">Issued</option>
+            <option value="partial">Partial</option>
             <option value="paid">Paid</option>
             <option value="overdue">Overdue</option>
           </select>
@@ -131,11 +243,11 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
                 </td></tr>
               ) : invoices.map(inv => (
                 <tr key={inv.id} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="table-td font-semibold text-brand">{inv.invoice_number}</td>
-                  <td className="table-td text-gray-500">{inv.date ? new Date(inv.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : ''}</td>
+                  <td className="table-td font-semibold text-brand whitespace-nowrap">{inv.invoice_number}</td>
+                  <td className="table-td text-gray-500 whitespace-nowrap">{inv.date ? new Date(inv.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : ''}</td>
                   <td className="table-td font-medium">{inv.customer_name || ''}</td>
-                  <td className="table-td text-gray-500">{inv.lr_number || ''}</td>
-                  <td className="table-td">{inv.vehicle_number ? <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">{inv.vehicle_number}</span> : ''}</td>
+                  <td className="table-td text-gray-500 whitespace-nowrap">{inv.lr_number || ''}</td>
+                  <td className="table-td whitespace-nowrap">{inv.vehicle_number ? <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded whitespace-nowrap">{inv.vehicle_number}</span> : ''}</td>
                   <td className="table-td font-semibold text-gray-900">{inv.total_amount ? Number(inv.total_amount).toLocaleString('en-IN') : ''}</td>
                   <td className="table-td text-emerald-600 font-medium">{inv.amount_received ? Number(inv.amount_received).toLocaleString('en-IN') : ''}</td>
                   <td className="table-td text-amber-600 font-medium">{inv.amount_pending ? Number(inv.amount_pending).toLocaleString('en-IN') : ''}</td>

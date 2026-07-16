@@ -682,7 +682,7 @@ export default function InvoiceForm({ editId, onNav }: Props) {
         <div className={`flex-1 overflow-auto bg-gray-200 p-6 print-wrapper ${showPreview ? 'block' : 'hidden'}`}>
           <div className="min-w-fit mx-auto">
             <div className="text-xs text-gray-400 text-center mb-3 font-medium no-print">LIVE PREVIEW — updates as you type</div>
-            <div id="print-section" className="shadow-2xl rounded-xl overflow-hidden print:!shadow-none print:!rounded-none relative">
+            <div id="print-section" className="shadow-2xl overflow-hidden print:!shadow-none print:!rounded-none relative">
               <InvoicePdfPreview invoice={form} company={company} bank={bank} onDownload={downloadPDF} />
             </div>
           </div>

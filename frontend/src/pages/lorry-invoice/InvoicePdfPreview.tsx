@@ -89,17 +89,20 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
         }
         @media print {
             .no-print { display: none; }
-            body { background: white; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
         }
       `}</style>
-      <div className="max-w-5xl mx-auto bg-[#ffffff] rounded-xl shadow-lg overflow-hidden border border-[#c3c5d9]">
-        {/* Invoice Header */}
-        <div className="relative bg-[#003ec7] overflow-hidden p-3">
+
+      {/* Main A4 Wrapper */}
+      <div className="w-[794px] min-h-[1123px] mx-auto bg-white shadow-lg overflow-hidden border border-[#c3c5d9] flex flex-col">
+        
+        {/* Header */}
+        <div className="relative bg-[#003ec7] overflow-hidden p-6 border-b-[6px] border-[#002f99]">
           <div className="relative z-10 flex flex-row justify-between items-center gap-3">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-1 shrink-0 mt-0.5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white flex items-center justify-center p-1 shrink-0 mt-0.5">
                 {company?.logo_url ? (
-                  <img alt="Logo" className="w-full h-full object-contain" src={company.logo_url} />
+                  <img alt="Logo" className="max-w-full max-h-full object-contain" src={company.logo_url} />
                 ) : (
                   <Truck size={32} className="text-[#003ec7]" />
                 )}
@@ -125,8 +128,11 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
                 </div>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-lg border border-white/20 flex items-center justify-center text-center">
-              <h2 className="text-[13px] font-bold text-white tracking-widest uppercase leading-tight">TAX<br />INVOICE</h2>
+            {/* Right side Document Type */}
+            <div className="text-right flex flex-col items-end gap-1">
+              <div className="bg-white/10 backdrop-blur-md px-6 py-4 border border-white/20 flex items-center justify-center text-center">
+                <h2 className="text-[16px] font-black text-white uppercase tracking-widest leading-tight">TAX<br />INVOICE</h2>
+              </div>
             </div>
           </div>
         </div>
@@ -161,12 +167,12 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
           </div>
         </div>
 
-        {/* Bento Grid Sections */}
-        <div className="p-3 grid grid-cols-2 gap-3">
+        {/* Customer & Consignee Row */}
+        <div className="grid grid-cols-2 gap-3 p-3 mt-1 mx-2">
           {/* Bill To Card */}
-          <div className="border border-[#e5e7eb] rounded-lg overflow-hidden bg-white">
-            <div className="bg-[#f4f6fb] px-3 py-1.5 border-b border-[#e5e7eb]">
-              <h3 className="text-[9px] font-semibold tracking-wider text-[#3b82f6] uppercase">Customer Details / Bill To</h3>
+          <div className="border border-[#e5e7eb] overflow-hidden bg-white">
+            <div className="bg-[#f4f6fa] px-3 py-1.5 border-b border-[#e5e7eb]">
+              <h3 className="text-[9px] font-bold text-[#3b82f6] uppercase tracking-wider">Customer Details / Bill To</h3>
             </div>
             <div className="p-3 space-y-2">
               <div>
@@ -184,12 +190,12 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
                 </div>
               )}
               <div className="flex gap-2">
-                <div className="flex-1 bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+                <div className="flex-1 bg-[#f9fafb] p-2 border border-[#e5e7eb] border-dashed">
                   <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">GSTIN</p>
                   <p className="text-[10px] font-bold text-[#3b82f6]">{invoice.customer_gstin || '—'}</p>
                 </div>
                 {invoice.customer_state && (
-                  <div className="flex-1 bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+                  <div className="flex-1 bg-[#f9fafb] p-2 border border-[#e5e7eb] border-dashed">
                     <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">State</p>
                     <p className="text-[10px] font-bold text-[#374151]">{invoice.customer_state}</p>
                   </div>
@@ -199,9 +205,9 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
           </div>
 
           {/* Consignee Card */}
-          <div className="border border-[#e5e7eb] rounded-lg overflow-hidden bg-white">
+          <div className="border border-[#e5e7eb] overflow-hidden bg-white">
             <div className="bg-[#ebf5e6] px-3 py-1.5 border-b border-[#e5e7eb]">
-              <h3 className="text-[9px] font-semibold tracking-wider text-[#16a34a] uppercase">Consignee Details</h3>
+              <h3 className="text-[9px] font-bold text-[#16a34a] uppercase tracking-wider">Consignee Details</h3>
             </div>
             <div className="p-3 space-y-2">
               <div>
@@ -221,7 +227,7 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
                 </div>
               )}
               {invoice.consignee_gstin && (
-                <div className="bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+                <div className="bg-[#f9fafb] p-2 border border-[#e5e7eb] border-dashed">
                   <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">GSTIN</p>
                   <p className="text-[10px] font-bold text-[#16a34a]">{invoice.consignee_gstin}</p>
                 </div>
@@ -231,8 +237,8 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
         </div>
 
         {/* Goods Detail Table */}
-        <div className="mx-2 mb-2 border border-[#c3c5d9] rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse">
+        <div className="mx-2 mb-2 border border-[#c3c5d9] overflow-hidden flex-1">
+          <table className="w-full text-left border-collapse h-full">
             <thead className="bg-[#dbeafe] border-b border-[#c3c5d9] text-[#1e3a8a]">
               <tr>
                 <th className="px-2 py-2 text-[10px] font-bold text-center">LR No & Date</th>
@@ -276,13 +282,13 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
         </div>
 
         {/* Bottom Section: Summary & Signs */}
-        <div className="grid grid-cols-2 gap-3 p-3 bg-[#f2f4f6] border-t border-[#c3c5d9]">
+        <div className="grid grid-cols-2 gap-3 p-3 bg-[#f2f4f6] border-t border-[#c3c5d9] mt-auto">
 
           {/* Left Column: Bank Details & Terms */}
           <div className="flex flex-col gap-3">
             {/* Bank Details */}
-            <div className="bg-white p-3 rounded-xl border border-[#c3c5d9]">
-              <p className="text-[9px] font-semibold tracking-wider text-[#434656] uppercase tracking-widest mb-2 border-b border-[#e5e7eb] pb-1">Bank Details</p>
+            <div className="bg-white p-3 border border-[#c3c5d9]">
+              <h3 className="text-[9px] font-semibold text-[#434656] uppercase tracking-widest border-b border-[#e5e7eb] pb-1.5 mb-2 flex items-center gap-1.5">Bank Details</h3>
               <div className="grid grid-cols-[100px_1fr] gap-y-1 text-[10px]">
                 <span className="text-[#6b7280]">Account Name</span><span className="font-bold">{activeBank.account_name}</span>
                 <span className="text-[#6b7280]">Bank Name</span><span>{activeBank.bank_name}</span>
@@ -294,8 +300,8 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
             </div>
 
             {/* Terms & Conditions */}
-            <div className="bg-white p-3 rounded-xl border border-[#c3c5d9] mt-auto">
-              <p className="text-[9px] font-semibold tracking-wider text-[#434656] uppercase tracking-widest mb-2 border-b border-[#e5e7eb] pb-1">Terms & Conditions</p>
+            <div className="bg-white p-3 border border-[#c3c5d9] mt-auto">
+              <h3 className="text-[9px] font-semibold text-[#434656] uppercase tracking-widest border-b border-[#e5e7eb] pb-1.5 mb-2">Terms & Conditions</h3>
               {invoice.terms ? (
                 <div className="text-[#434656] text-[9px] space-y-1">
                   {invoice.terms.split('\n').filter(Boolean).map((t, i) => (
@@ -313,10 +319,10 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
           </div>
 
           {/* Right Column: Charges Summary */}
-          <div className="bg-[#003ec7] text-white p-3 rounded-xl space-y-2 shadow-xl flex flex-col">
+          <div className="bg-[#003ec7] text-white p-3 flex flex-col">
             <h3 className="text-[9px] font-semibold tracking-wider uppercase tracking-widest border-b border-white/20 pb-2">Charges</h3>
 
-            <div className="space-y-1">
+            <div className="space-y-1 mt-2">
               <div className="flex justify-between text-[10px]"><span className="text-white/80">Freight Charge</span><span className="font-medium">{invoice.freight_charge ? formatCurrency(invoice.freight_charge) : '—'}</span></div>
               {Number(invoice.loading_charge) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Loading Charge</span><span className="font-medium">{formatCurrency(invoice.loading_charge)}</span></div>}
               {Number(invoice.unloading_charge) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Unloading Charge</span><span className="font-medium">{formatCurrency(invoice.unloading_charge)}</span></div>}
@@ -325,7 +331,7 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
               {Number(invoice.other_charges) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Other Charges</span><span className="font-medium">{formatCurrency(invoice.other_charges)}</span></div>}
             </div>
 
-            <div className="flex justify-between text-[11px] font-semibold pt-1 border-t border-white/20">
+            <div className="flex justify-between text-[11px] font-semibold pt-1 border-t border-white/20 mt-2">
               <span>Sub Total</span><span>{formatCurrency(subTotal)}</span>
             </div>
 
@@ -345,9 +351,9 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
             )}
 
             <div className="mt-auto pt-3 border-t border-white/20">
-              <div className="flex justify-between items-end">
-                <span className="text-[14px] font-bold tracking-wider">GRAND TOTAL</span>
-                <span className="text-[18px] font-bold text-white bg-white/20 px-3 py-1 rounded-lg">₹ {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <div className="flex justify-between items-center pt-2 border-t border-white/20 mt-auto">
+                <span className="text-[12px] font-bold text-white uppercase tracking-wider">Grand Total</span>
+                <span className="text-[18px] font-bold text-white bg-white/20 px-3 py-1">₹ {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="mt-2 text-right">
                 <span className="text-[9px] text-white/70 block mb-0.5">Amount in Words</span>

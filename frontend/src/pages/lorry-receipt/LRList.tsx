@@ -164,16 +164,16 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
               ) : (
                 lrs.map(lr => (
                   <tr key={lr.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="table-td">
+                    <td className="table-td whitespace-nowrap">
                       <span className="font-semibold text-brand">{lr.lr_number}</span>
                     </td>
-                    <td className="table-td text-gray-500">
+                    <td className="table-td text-gray-500 whitespace-nowrap">
                       {lr.date ? new Date(lr.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
                     </td>
                     <td className="table-td font-medium">{lr.consignor_name || '—'}</td>
                     <td className="table-td">{lr.consignee_name || '—'}</td>
-                    <td className="table-td">
-                      <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">{lr.vehicle_number || '—'}</span>
+                    <td className="table-td whitespace-nowrap">
+                      <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded whitespace-nowrap">{lr.vehicle_number || '—'}</span>
                     </td>
                     <td className="table-td text-gray-500 text-xs">
                       {lr.from_location && lr.to_location ? `${lr.from_location} → ${lr.to_location}` : '—'}
