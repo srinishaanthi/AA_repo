@@ -177,7 +177,19 @@ class QueryBuilder {
 }
 
 export const api = {
-  from: (table: string) => new QueryBuilder(table)
+  from: (table: string) => new QueryBuilder(table),
+  post: async (path: string, body: any) => {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Request failed with status ${res.status}`);
+    }
+    return res.json();
+  }
 };
 
 export async function getNextNumber(seriesType: string): Promise<string> {

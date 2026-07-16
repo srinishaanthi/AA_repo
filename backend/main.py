@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from database import engine, Base, get_db, SessionLocal
 import models
@@ -108,6 +109,22 @@ def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_
     db.refresh(db_obj)
     return db_obj
 
+@app.post("/api/customers/bulk")
+def create_customers_bulk(customers: List[schemas.CustomerCreate], db: Session = Depends(get_db)):
+    added_count = 0
+    for cust in customers:
+        data = cust.model_dump()
+        if not data.get("id"):
+            data["id"] = str(uuid.uuid4())
+        # Check if customer already exists by name (case-insensitive strip query)
+        existing = db.query(models.Customer).filter(func.lower(models.Customer.name) == func.lower(data["name"].strip())).first()
+        if not existing:
+            db_obj = models.Customer(**data)
+            db.add(db_obj)
+            added_count += 1
+    db.commit()
+    return {"status": "ok", "added_count": added_count}
+
 @app.get("/api/customers/{id}", response_model=schemas.CustomerOut)
 def get_customer(id: str, db: Session = Depends(get_db)):
     return get_object_or_404(db, models.Customer, id)
@@ -143,6 +160,21 @@ def create_vehicle(vehicle: schemas.VehicleCreate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(db_obj)
     return db_obj
+
+@app.post("/api/vehicles/bulk")
+def create_vehicles_bulk(vehicles: List[schemas.VehicleCreate], db: Session = Depends(get_db)):
+    added_count = 0
+    for veh in vehicles:
+        data = veh.model_dump()
+        if not data.get("id"):
+            data["id"] = str(uuid.uuid4())
+        existing = db.query(models.Vehicle).filter(func.lower(models.Vehicle.vehicle_number) == func.lower(data["vehicle_number"].strip())).first()
+        if not existing:
+            db_obj = models.Vehicle(**data)
+            db.add(db_obj)
+            added_count += 1
+    db.commit()
+    return {"status": "ok", "added_count": added_count}
 
 @app.get("/api/vehicles/{id}", response_model=schemas.VehicleOut)
 def get_vehicle(id: str, db: Session = Depends(get_db)):
@@ -180,6 +212,28 @@ def create_driver(driver: schemas.DriverCreate, db: Session = Depends(get_db)):
     db.refresh(db_obj)
     return db_obj
 
+@app.post("/api/drivers/bulk")
+def create_drivers_bulk(drivers: List[schemas.DriverCreate], db: Session = Depends(get_db)):
+    added_count = 0
+    for drv in drivers:
+        data = drv.model_dump()
+        if not data.get("id"):
+            data["id"] = str(uuid.uuid4())
+        existing = None
+        if data.get("license_number"):
+            existing = db.query(models.Driver).filter(func.lower(models.Driver.license_number) == func.lower(data["license_number"].strip())).first()
+        else:
+            existing = db.query(models.Driver).filter(
+                func.lower(models.Driver.name) == func.lower(data["name"].strip()),
+                models.Driver.phone == data.get("phone")
+            ).first()
+        if not existing:
+            db_obj = models.Driver(**data)
+            db.add(db_obj)
+            added_count += 1
+    db.commit()
+    return {"status": "ok", "added_count": added_count}
+
 @app.get("/api/drivers/{id}", response_model=schemas.DriverOut)
 def get_driver(id: str, db: Session = Depends(get_db)):
     return get_object_or_404(db, models.Driver, id)
@@ -215,6 +269,21 @@ def create_item(item: schemas.ItemCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_obj)
     return db_obj
+
+@app.post("/api/items/bulk")
+def create_items_bulk(items: List[schemas.ItemCreate], db: Session = Depends(get_db)):
+    added_count = 0
+    for itm in items:
+        data = itm.model_dump()
+        if not data.get("id"):
+            data["id"] = str(uuid.uuid4())
+        existing = db.query(models.Item).filter(func.lower(models.Item.name) == func.lower(data["name"].strip())).first()
+        if not existing:
+            db_obj = models.Item(**data)
+            db.add(db_obj)
+            added_count += 1
+    db.commit()
+    return {"status": "ok", "added_count": added_count}
 
 @app.get("/api/items/{id}", response_model=schemas.ItemOut)
 def get_item(id: str, db: Session = Depends(get_db)):
