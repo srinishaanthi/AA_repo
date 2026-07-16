@@ -375,6 +375,10 @@ export default function LRForm({ editId, onNav }: Props) {
       {/* Sticky Action Bar */}
       <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
+          <button onClick={() => onNav({ page: 'lr-list' })} className="btn-ghost">
+            <ArrowLeft size={15} /> Back
+          </button>
+          <div className="h-5 w-px bg-gray-200" />
           <div>
             <span className="text-xs text-gray-400">Lorry Receipt</span>
             <div className="text-sm font-bold text-gray-900">{form.lr_number || 'New LR'}</div>

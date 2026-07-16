@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api } from '../../lib/api';
 import { LorryReceipt, NavState } from '../../types';
-import { Plus, Search, Filter, Eye, Pencil, Printer, Trash2, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Pencil, Printer, Trash2, FileText, ChevronLeft, ChevronRight, Download, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const PAGE_SIZE = 10;
 
@@ -23,6 +24,7 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function updateStatus(id: string, newStatus: string) {
     const lrToUpdate = lrs.find(lr => lr.id === id);
@@ -65,6 +67,117 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
     loadLRs();
   }
 
+  function handleExport() {
+    const headers = ['LR NO', 'DATE', 'CONSIGNOR', 'CONSIGNEE', 'VEHICLE', 'FROM -> TO', 'TOTAL', 'STATUS'];
+    const rows = lrs.map(lr => [
+      lr.lr_number || '',
+      lr.date ? new Date(lr.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '',
+      lr.consignor_name ? `"${lr.consignor_name.replace(/"/g, '""')}"` : '',
+      lr.consignee_name ? `"${lr.consignee_name.replace(/"/g, '""')}"` : '',
+      lr.vehicle_number || '',
+      `"${(lr.from_location || '')} -> ${(lr.to_location || '')}"`,
+      lr.total_amount || 0,
+      lr.status || ''
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `Lorry_Receipts_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function handleDownloadTemplate() {
+    const headers = ['LR NO', 'DATE', 'CONSIGNOR', 'CONSIGNEE', 'VEHICLE', 'FROM -> TO', 'TOTAL', 'STATUS'];
+    const csvContent = headers.join(',') + '\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'LR_Import_Template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      if (json.length < 2) return alert('No data found in file.');
+      
+      const headers = (json[0] as string[]).map(h => String(h).trim());
+      const importedLRs = [];
+      
+      for (let i = 1; i < json.length; i++) {
+        const row = json[i] as any[];
+        if (!row || row.length === 0 || row.every(val => val === null || val === undefined || val === '')) continue;
+        
+        const lr: any = { id: crypto.randomUUID(), created_at: new Date().toISOString() };
+        
+        headers.forEach((h, index) => {
+          let val = row[index];
+          if (val === undefined || val === null || val === '') return;
+          
+          if (val instanceof Date) {
+            val = val.toISOString();
+          } else {
+            val = String(val).trim();
+          }
+
+          if (h === 'LR NO') lr.lr_number = val;
+          if (h === 'DATE') lr.date = new Date(val).toISOString();
+          if (h === 'CONSIGNOR') lr.consignor_name = val;
+          if (h === 'CONSIGNEE') lr.consignee_name = val;
+          if (h === 'VEHICLE') lr.vehicle_number = val;
+          if (h === 'FROM -> TO') {
+            const parts = String(val).split('->').map(p => p.trim());
+            if (parts.length >= 1) lr.from_location = parts[0];
+            if (parts.length >= 2) lr.to_location = parts[1];
+          }
+          if (h === 'TOTAL') lr.total_amount = Number(val) || 0;
+          if (h === 'STATUS') lr.status = String(val).toLowerCase();
+        });
+        
+        if (lr.lr_number) importedLRs.push(lr);
+      }
+      
+      if (importedLRs.length > 0) {
+        const { data: existing } = await api.from('lorry_receipts').select('id,lr_number');
+        const existingMap = new Map((existing || []).map((r: any) => [r.lr_number, r.id]));
+        
+        let successCount = 0;
+        for (const lr of importedLRs) {
+          try {
+            if (existingMap.has(lr.lr_number)) {
+              await api.from('lorry_receipts').update(lr).eq('id', existingMap.get(lr.lr_number));
+            } else {
+              await api.from('lorry_receipts').insert(lr);
+            }
+            successCount++;
+          } catch (e) {
+            console.error('Error importing LR:', lr.lr_number, e);
+          }
+        }
+        alert(`Successfully imported ${successCount} Lorry Receipts!`);
+        loadLRs();
+      } else {
+        alert('No valid Lorry Receipts found to import.');
+      }
+    } catch (err: any) {
+      alert('Error importing file: ' + err.message);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
@@ -75,10 +188,19 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
           <h1 className="text-2xl font-bold text-gray-900">Lorry Receipts</h1>
           <p className="text-sm text-gray-400 mt-0.5">{total} total records</p>
         </div>
-        <button onClick={() => onNav({ page: 'lr-create' })} className="btn-primary">
-          <Plus size={16} />
-          New LR
-        </button>
+        <div className="flex gap-2">
+          <input type="file" accept=".csv, .xls, .xlsx" className="hidden" ref={fileInputRef} onChange={handleImport} />
+          <button onClick={handleDownloadTemplate} className="btn-secondary" title="Download Template"><Download size={15} /> Template</button>
+          <button onClick={() => fileInputRef.current?.click()} className="btn-secondary" title="Import Lorry Receipts"><Upload size={15} /> Import</button>
+          <button onClick={handleExport} className="btn-secondary">
+            <Download size={15} />
+            Export
+          </button>
+          <button onClick={() => onNav({ page: 'lr-create' })} className="btn-primary">
+            <Plus size={16} />
+            New LR
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

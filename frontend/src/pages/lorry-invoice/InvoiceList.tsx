@@ -135,7 +135,7 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
         const row = json[i] as any[];
         if (!row || row.length === 0 || row.every(val => val === null || val === undefined || val === '')) continue;
         
-        const inv: any = { created_at: new Date().toISOString() };
+        const inv: any = { id: crypto.randomUUID(), created_at: new Date().toISOString() };
         
         headers.forEach((h, index) => {
           let val = row[index];
@@ -162,9 +162,23 @@ export default function InvoiceList({ onNav }: { onNav: (s: NavState) => void })
       }
       
       if (importedInvoices.length > 0) {
-        const { error } = await api.from('lorry_invoices').insert(importedInvoices);
-        if (error) throw error;
-        alert(`Successfully imported ${importedInvoices.length} invoices!`);
+        const { data: existing } = await api.from('lorry_invoices').select('id,invoice_number');
+        const existingMap = new Map((existing || []).map((r: any) => [r.invoice_number, r.id]));
+        
+        let successCount = 0;
+        for (const inv of importedInvoices) {
+          try {
+            if (existingMap.has(inv.invoice_number)) {
+              await api.from('lorry_invoices').update(inv).eq('id', existingMap.get(inv.invoice_number));
+            } else {
+              await api.from('lorry_invoices').insert(inv);
+            }
+            successCount++;
+          } catch (e) {
+            console.error('Error importing Invoice:', inv.invoice_number, e);
+          }
+        }
+        alert(`Successfully imported ${successCount} invoices!`);
         load();
       } else {
         alert('No valid invoices found to import.');

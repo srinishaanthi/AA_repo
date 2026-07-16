@@ -87,14 +87,25 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
+        @page {
+            margin: 0;
+            size: auto;
+        }
         @media print {
             .no-print { display: none; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+            body { 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+                background: white; 
+                margin: 0; 
+                padding: 0; 
+            }
+            .shadow-lg { box-shadow: none !important; }
         }
       `}</style>
 
       {/* Main A4 Wrapper */}
-      <div className="w-[794px] min-h-[1123px] mx-auto bg-white shadow-lg overflow-hidden border border-[#c3c5d9] flex flex-col">
+      <div className="w-[794px] mx-auto bg-white shadow-lg overflow-hidden border border-[#c3c5d9] flex flex-col">
         
         {/* Header */}
         <div className="relative bg-[#003ec7] overflow-hidden p-6 border-b-[6px] border-[#002f99]">
@@ -139,31 +150,35 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
 
         {/* Info Banner */}
         <div className="grid grid-cols-4 gap-3 p-3 bg-[#f2f4f6] border-b border-[#c3c5d9]">
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">tag</span> INVOICE NO.
-            </p>
-            <p className="text-[11px] font-semibold text-[#003ec7]">{invoice.invoice_number || '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1px]">tag</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">INVOICE NO.</p>
+              <p className="text-[11px] font-semibold text-[#003ec7]">{invoice.invoice_number || '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">calendar_today</span> INVOICE DATE
-            </p>
-            <p className="text-[11px] font-semibold">{invoice.date ? new Date(invoice.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1px]">calendar_today</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">INVOICE DATE</p>
+              <p className="text-[11px] font-semibold">{invoice.date ? new Date(invoice.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">local_shipping</span> VEHICLE NO.
-            </p>
-            <p className="text-[11px] font-semibold">{invoice.vehicle_number || '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1px]">domain</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">BRANCH</p>
+              <p className="text-[11px] font-semibold">{invoice.branch || '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">pin_drop</span> FROM / TO
-            </p>
-            <p className="text-[11px] font-semibold">
-              {invoice.from_location || '—'} / {invoice.to_location || '—'}
-            </p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1px]">pin_drop</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">FROM / TO</p>
+              <p className="text-[11px] font-semibold">
+                {invoice.from_location || '—'} / {invoice.to_location || '—'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -237,8 +252,8 @@ export default function InvoicePdfPreview({ invoice, company, bank, onDownload }
         </div>
 
         {/* Goods Detail Table */}
-        <div className="mx-2 mb-2 border border-[#c3c5d9] overflow-hidden flex-1">
-          <table className="w-full text-left border-collapse h-full">
+        <div className="mx-2 mb-2 border border-[#c3c5d9] overflow-hidden bg-white">
+          <table className="w-full text-left border-collapse">
             <thead className="bg-[#dbeafe] border-b border-[#c3c5d9] text-[#1e3a8a]">
               <tr>
                 <th className="px-2 py-2 text-[10px] font-bold text-center">LR No & Date</th>
