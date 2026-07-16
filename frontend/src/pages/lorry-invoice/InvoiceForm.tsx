@@ -3,6 +3,7 @@ import { api, getNextNumber } from '../../lib/api';
 import { LorryInvoice, LorryReceipt, Customer, CompanySettings, Bank, InvoiceGoodsLine, NavState } from '../../types';
 import InvoicePdfPreview from './InvoicePdfPreview';
 // @ts-ignore
+// @ts-ignore
 import html2pdf from 'html2pdf.js';
 import { Save, Printer, ArrowLeft, Eye, Plus, Trash2, ChevronDown, ChevronUp, FileText, Download, Lock } from 'lucide-react';
 
@@ -103,7 +104,7 @@ export default function InvoiceForm({ editId, onNav }: Props) {
   function selectLRForGoods(i: number, lrId: string) {
     const lr = lrs.find(l => l.id === lrId);
     if (!lr) return;
-    
+
     const goodsList = lr.goods || [];
     const material_description = goodsList.map((g: any) => g.description).join(', ');
     const no_of_packages = goodsList.reduce((acc: number, g: any) => acc + (Number(g.packages) || 0), 0);
@@ -171,38 +172,30 @@ export default function InvoiceForm({ editId, onNav }: Props) {
     let wasHidden = !showPreview;
     if (wasHidden) {
       setShowPreview(true);
-      // Wait for DOM to render the preview if it was hidden
       await new Promise(r => setTimeout(r, 100));
     }
+    const originalTitle = document.title;
+    document.title = `${form.invoice_number || 'invoice'}`;
+    window.print();
+    document.title = originalTitle;
+    if (wasHidden) setShowPreview(false);
+  };
 
-    // Capture the actual fixed-width invoice, not the responsive container!
-    const element = document.querySelector('.pdf-preview') as HTMLElement;
+  const downloadPDF = () => {
+    const element = document.getElementById('print-section');
     if (!element) return;
 
-    // Ensure all web fonts are fully loaded before capturing
-    await document.fonts.ready;
-
-    // Scale up for crisp text and avoid scroll offsets
     const opt = {
       margin: 0,
-      filename: `${form.invoice_number || 'invoice'}.pdf`,
+      filename: `Invoice_${form.invoice_number || 'New'}.pdf`,
       image: { type: 'jpeg', quality: 1 },
-      html2canvas: { scale: 3, useCORS: true, windowWidth: element.scrollWidth, scrollY: 0, scrollX: 0, letterRendering: true },
-      // Use exact un-clipped dimensions of the element so it fits perfectly on 1 page!
-      jsPDF: { unit: 'px', format: [element.scrollWidth, element.scrollHeight], orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true, windowWidth: 794 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
     };
 
-    try {
-      await html2pdf().set(opt).from(element).save();
-    } catch (e) {
-      console.error('Download failed', e);
-      alert('Failed to generate PDF.');
-    }
-
-    if (wasHidden) {
-      setShowPreview(false);
-    }
+    html2pdf().set(opt).from(element).save();
   };
+
 
   const saveNewCustomer = async () => {
     if (!form.customer_name) {
@@ -286,10 +279,12 @@ export default function InvoiceForm({ editId, onNav }: Props) {
           <button onClick={() => handleSave('draft')} disabled={saving} className="btn-secondary">
             <Save size={15} />{saving ? 'Saving…' : saved ? 'Saved!' : 'Save Draft'}
           </button>
-          <button onClick={handleDownload} className="btn-secondary">
+          <button onClick={downloadPDF} className="btn-secondary text-brand hover:text-brand-dark border-brand/20 hover:border-brand/40 bg-brand/5 hover:bg-brand/10 transition-colors">
             <Download size={15} /> Download PDF
           </button>
-          <button onClick={() => window.print()} className="btn-secondary"><Printer size={15} /> Print</button>
+
+          <button onClick={handleDownload} className="btn-secondary"><Printer size={15} /> Print</button>
+
           <button onClick={() => handleSave('issued')} disabled={saving} className="btn-primary">
             <FileText size={15} /> Generate Invoice
           </button>
@@ -328,8 +323,8 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                         </div>
                         <div>
                           <label className={lbl}>Auto-fill from LR</label>
-                          <select 
-                            className={inp} 
+                          <select
+                            className={inp}
                             value={form.lr_number || ''}
                             onChange={e => {
                               const val = e.target.value;
@@ -371,91 +366,91 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                       <div className="grid grid-cols-2 gap-6 mt-4">
                         {/* Left Column: Bill To */}
                         <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-                        <div className="border-b border-gray-100 pb-2 flex justify-between items-center">
-                          <h3 className="font-semibold text-gray-800">Bill To Details</h3>
-                          <button onClick={() => setEditBillTo(!editBillTo)} className="text-xs text-brand hover:underline font-medium">
-                            {editBillTo ? 'Done Editing' : 'Edit Details'}
-                          </button>
-                        </div>
-                        <div>
-                          <label className={lbl}>Select Customer (Optional)</label>
-                          <select className={inp} value={form.customer_id || ''} onChange={e => {
-                            const val = e.target.value;
-                            if (!val) {
-                              setForm(f => ({ ...f, customer_id: '', customer_name: '', customer_gstin: '', customer_address: '', customer_phone: '', customer_state: '', customer_contact_person: '' }));
-                              return;
-                            }
-                            const c = customers.find(x => x.id === val);
-                            if (c) {
-                              setForm(f => ({ ...f, customer_id: c.id, customer_name: c.name, customer_gstin: c.gstin || '', customer_address: c.address || '', customer_phone: c.phone || '', customer_state: c.state || '', customer_contact_person: c.contact_person || '' }));
-                            }
-                          }}>
-                            <option value="">— Select from Customers —</option>
-                            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                        </div>
-                        {!editBillTo ? (
-                          <div className="mt-3 p-4 bg-gray-50 border border-gray-100 rounded-xl text-sm">
-                            <div className="grid grid-cols-2 gap-y-4 gap-x-6">
-                              <div className="col-span-2">
-                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Customer Name</span>
-                                <div className="font-semibold text-gray-900 text-base">{form.customer_name || '—'}</div>
-                              </div>
-                              <div>
-                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">GSTIN</span>
-                                <div className="text-gray-700 font-medium">{form.customer_gstin || '—'}</div>
-                              </div>
-                              <div>
-                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Mobile / Phone</span>
-                                <div className="text-gray-700 font-medium">{form.customer_phone || '—'}</div>
-                              </div>
-                              <div className="col-span-2">
-                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Billing Address</span>
-                                <div className="text-gray-700 font-medium">
-                                  {form.customer_address || form.customer_state ? (
-                                    <>{form.customer_address} {form.customer_state ? `, ${form.customer_state}` : ''}</>
-                                  ) : '—'}
+                          <div className="border-b border-gray-100 pb-2 flex justify-between items-center">
+                            <h3 className="font-semibold text-gray-800">Bill To Details</h3>
+                            <button onClick={() => setEditBillTo(!editBillTo)} className="text-xs text-brand hover:underline font-medium">
+                              {editBillTo ? 'Done Editing' : 'Edit Details'}
+                            </button>
+                          </div>
+                          <div>
+                            <label className={lbl}>Select Customer (Optional)</label>
+                            <select className={inp} value={form.customer_id || ''} onChange={e => {
+                              const val = e.target.value;
+                              if (!val) {
+                                setForm(f => ({ ...f, customer_id: '', customer_name: '', customer_gstin: '', customer_address: '', customer_phone: '', customer_state: '', customer_contact_person: '' }));
+                                return;
+                              }
+                              const c = customers.find(x => x.id === val);
+                              if (c) {
+                                setForm(f => ({ ...f, customer_id: c.id, customer_name: c.name, customer_gstin: c.gstin || '', customer_address: c.address || '', customer_phone: c.phone || '', customer_state: c.state || '', customer_contact_person: c.contact_person || '' }));
+                              }
+                            }}>
+                              <option value="">— Select from Customers —</option>
+                              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          </div>
+                          {!editBillTo ? (
+                            <div className="mt-3 p-4 bg-gray-50 border border-gray-100 rounded-xl text-sm">
+                              <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                                <div className="col-span-2">
+                                  <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Customer Name</span>
+                                  <div className="font-semibold text-gray-900 text-base">{form.customer_name || '—'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">GSTIN</span>
+                                  <div className="text-gray-700 font-medium">{form.customer_gstin || '—'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Mobile / Phone</span>
+                                  <div className="text-gray-700 font-medium">{form.customer_phone || '—'}</div>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Billing Address</span>
+                                  <div className="text-gray-700 font-medium">
+                                    {form.customer_address || form.customer_state ? (
+                                      <>{form.customer_address} {form.customer_state ? `, ${form.customer_state}` : ''}</>
+                                    ) : '—'}
+                                  </div>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Contact Person</span>
+                                  <div className="text-gray-700 font-medium">{form.customer_contact_person || '—'}</div>
                                 </div>
                               </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3 mt-3 p-3 bg-gray-50 border border-brand/20 rounded-lg">
+                              <div>
+                                <label className={lbl}>Customer Name</label>
+                                <input className={inp} value={form.customer_name || ''} onChange={e => setF('customer_name', e.target.value)} />
+                              </div>
+                              <div>
+                                <label className={lbl}>GSTIN</label>
+                                <input className={inp} value={form.customer_gstin || ''} onChange={e => setF('customer_gstin', e.target.value)} />
+                              </div>
+                              <div>
+                                <label className={lbl}>State</label>
+                                <input className={inp} value={form.customer_state || ''} onChange={e => setF('customer_state', e.target.value)} />
+                              </div>
+                              <div>
+                                <label className={lbl}>Contact Person</label>
+                                <input className={inp} value={form.customer_contact_person || ''} onChange={e => setF('customer_contact_person', e.target.value)} />
+                              </div>
                               <div className="col-span-2">
-                                <span className="text-gray-400 text-[10px] block mb-0.5 uppercase tracking-wider font-bold">Contact Person</span>
-                                <div className="text-gray-700 font-medium">{form.customer_contact_person || '—'}</div>
+                                <label className={lbl}>Mobile / Phone</label>
+                                <input className={inp} value={form.customer_phone || ''} onChange={e => setF('customer_phone', e.target.value)} />
+                              </div>
+                              <div className="col-span-2">
+                                <label className={lbl}>Billing Address</label>
+                                <textarea rows={2} className={inp} value={form.customer_address || ''} onChange={e => setF('customer_address', e.target.value)} />
+                              </div>
+                              <div className="col-span-2 flex justify-end mt-2">
+                                <button onClick={saveNewCustomer} disabled={saving} className="btn-secondary text-xs bg-white border border-gray-200 hover:bg-gray-50 text-brand">
+                                  + Save as New Customer
+                                </button>
                               </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-3 mt-3 p-3 bg-gray-50 border border-brand/20 rounded-lg">
-                            <div>
-                              <label className={lbl}>Customer Name</label>
-                              <input className={inp} value={form.customer_name || ''} onChange={e => setF('customer_name', e.target.value)} />
-                            </div>
-                            <div>
-                              <label className={lbl}>GSTIN</label>
-                              <input className={inp} value={form.customer_gstin || ''} onChange={e => setF('customer_gstin', e.target.value)} />
-                            </div>
-                            <div>
-                              <label className={lbl}>State</label>
-                              <input className={inp} value={form.customer_state || ''} onChange={e => setF('customer_state', e.target.value)} />
-                            </div>
-                            <div>
-                              <label className={lbl}>Contact Person</label>
-                              <input className={inp} value={form.customer_contact_person || ''} onChange={e => setF('customer_contact_person', e.target.value)} />
-                            </div>
-                            <div className="col-span-2">
-                              <label className={lbl}>Mobile / Phone</label>
-                              <input className={inp} value={form.customer_phone || ''} onChange={e => setF('customer_phone', e.target.value)} />
-                            </div>
-                            <div className="col-span-2">
-                              <label className={lbl}>Billing Address</label>
-                              <textarea rows={2} className={inp} value={form.customer_address || ''} onChange={e => setF('customer_address', e.target.value)} />
-                            </div>
-                            <div className="col-span-2 flex justify-end mt-2">
-                              <button onClick={saveNewCustomer} disabled={saving} className="btn-secondary text-xs bg-white border border-gray-200 hover:bg-gray-50 text-brand">
-                                + Save as New Customer
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                          )}
                         </div>
                         {/* Right Column: Consignor & Consignee */}
                         <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
@@ -583,11 +578,11 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                                 <tr key={field} className="hover:bg-gray-50/50 transition-colors">
                                   <td className="p-3 text-sm text-gray-700 font-medium">{label}</td>
                                   <td className="p-2">
-                                    <input 
-                                      type="number" 
-                                      className="w-full text-right bg-transparent border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
-                                      value={form[field] as number || ''} 
-                                      onChange={e => setF(field, Number(e.target.value))} 
+                                    <input
+                                      type="number"
+                                      className="w-full text-right bg-transparent border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow"
+                                      value={form[field] as number || ''}
+                                      onChange={e => setF(field, Number(e.target.value))}
                                     />
                                   </td>
                                 </tr>
@@ -595,9 +590,9 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                               <tr className="bg-gray-50 border-t border-gray-200">
                                 <td className="p-3 text-sm text-gray-700 font-medium">GST Type</td>
                                 <td className="p-2">
-                                  <select 
-                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
-                                    value={form.party_code || (isIntraState ? 'cgst_sgst' : 'igst')} 
+                                  <select
+                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow"
+                                    value={form.party_code || (isIntraState ? 'cgst_sgst' : 'igst')}
                                     onChange={e => setF('party_code', e.target.value)}
                                   >
                                     <option value="cgst_sgst">CGST + SGST</option>
@@ -608,9 +603,9 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                               <tr className="bg-gray-50">
                                 <td className="p-3 text-sm text-gray-700 font-medium">GST Rate (%)</td>
                                 <td className="p-2">
-                                  <select 
-                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
-                                    value={form.party_code || 0} 
+                                  <select
+                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow"
+                                    value={form.party_code || 0}
                                     onChange={e => setF('gst_rate', Number(e.target.value))}
                                   >
                                     {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
@@ -620,7 +615,7 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                             </tbody>
                           </table>
                         </div>
-                        
+
                         <div className="lg:w-80 shrink-0">
                           <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-2xl p-6 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                             <h4 className="text-slate-400 text-xs font-semibold mb-5 uppercase tracking-widest flex items-center gap-2">
@@ -640,7 +635,7 @@ export default function InvoiceForm({ editId, onNav }: Props) {
                                 )
                               )}
                             </div>
-                            
+
                             <div className="mt-5 pt-5 border-t border-slate-700/50 space-y-4">
                               <div className="flex justify-between items-end">
                                 <span className="text-slate-300 text-sm font-medium">Grand Total</span>
@@ -687,8 +682,8 @@ export default function InvoiceForm({ editId, onNav }: Props) {
         <div className={`flex-1 overflow-auto bg-gray-200 p-6 print-wrapper ${showPreview ? 'block' : 'hidden'}`}>
           <div className="min-w-fit mx-auto">
             <div className="text-xs text-gray-400 text-center mb-3 font-medium no-print">LIVE PREVIEW — updates as you type</div>
-            <div id="print-section" className="shadow-2xl rounded-xl overflow-hidden print:!shadow-none print:!rounded-none">
-              <InvoicePdfPreview invoice={form} company={company} bank={bank} />
+            <div id="print-section" className="shadow-2xl rounded-xl overflow-hidden print:!shadow-none print:!rounded-none relative">
+              <InvoicePdfPreview invoice={form} company={company} bank={bank} onDownload={downloadPDF} />
             </div>
           </div>
         </div>

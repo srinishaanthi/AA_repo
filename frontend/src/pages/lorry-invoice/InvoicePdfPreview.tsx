@@ -1,15 +1,18 @@
 import React from 'react';
 import { LorryInvoice, CompanySettings, Bank } from '../../types';
-import { Truck, Phone, Mail, MapPin } from 'lucide-react';
+import { Truck, Download } from 'lucide-react';
 
 interface Props {
   invoice: Partial<LorryInvoice>;
   company: CompanySettings | null;
   bank: Bank | null;
+  onDownload?: () => void;
 }
 
-const fmt = (n?: number | string) => Number(n) > 0
-  ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-';
+const formatCurrency = (n?: number | string) => {
+  const num = Number(n) || 0;
+  return `Rs. ${num.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+};
 
 const numWords = (num: number): string => {
   if (!num) return '-';
@@ -27,7 +30,7 @@ const numWords = (num: number): string => {
   return conv(Math.floor(num)) + ' Only';
 };
 
-export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
+export default function InvoicePdfPreview({ invoice, company, bank, onDownload }: Props) {
   const defaultBank = {
     account_name: 'A & A Logistics',
     bank_name: 'State Bank of India',
@@ -73,542 +76,301 @@ export default function InvoicePdfPreview({ invoice, company, bank }: Props) {
   const igstAmt = isIntraState ? 0 : gstAmt;
 
   const goods = invoice.goods || [];
-  const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
   return (
-    <div className="pdf-preview antialiased flex flex-col bg-[#f3faff] text-[#071e27] font-sans" style={{ minHeight: '100%' }}>
+    <div className="pdf-preview bg-[#f7f9fb] text-[#191c1e] text-[11px]" style={{ fontFamily: 'Inter, sans-serif' }}>
+
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&family=Manrope:wght@600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
         
-        .pdf-preview {
-          font-family: 'Hanken Grotesk', sans-serif;
-        }
-        .font-manrope { font-family: 'Manrope', sans-serif; }
-        
         .material-symbols-outlined {
-          font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
-        
-
-        /* Variables for the theme */
-        .pdf-preview {
-          width: 210mm;
-          min-width: 210mm;
-          min-height: 297mm;
-          margin: 0 auto;
-          box-sizing: border-box;
-          background: white;
-          --surface: #f3faff;
-          --on-surface: #071e27;
-          --on-surface-variant: #42474d;
-          --surface-variant: #cfe6f2;
-          --surface-bright: #f3faff;
-          --surface-container: #dbf1fe;
-          --surface-container-lowest: #ffffff;
-          --surface-container-high: #d5ecf8;
-          --primary: #001d2f;
-          --on-primary: #ffffff;
-          --primary-container: #00334e;
-          --on-primary-container: #759cbb;
-          --secondary: #0047b3;
-          --on-secondary: #ffffff;
-          --secondary-container: #cce0ff;
-          --secondary-fixed: #b3d1ff;
-          --outline-variant: #c2c7ce;
-          --outline: #72787e;
-          --inverse-on-surface: #dff4ff;
-        }
-
         @media print {
-            @page {
-              size: A4;
-              margin: 0;
-            }
-            body {
-              margin: 0;
-              -webkit-print-color-adjust: exact;
-            }
-            .pdf-preview {
-              width: 210mm !important;
-              min-height: 297mm !important;
-              margin: 0 auto !important;
-              padding: 0 !important;
-              box-sizing: border-box;
-              background: white !important;
-              page-break-after: avoid;
-              page-break-inside: avoid;
-            }
-            
-            /* Tighten up vertical spacing for print to fit perfectly on one page */
-            .mb-4 { margin-bottom: 0.5rem !important; }
-            .mb-3 { margin-bottom: 0.25rem !important; }
-            .p-6 { padding: 1rem !important; }
-            .pb-6 { padding-bottom: 1rem !important; }
-            .py-2 { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
-            .p-4 { padding: 0.5rem !important; }
-            .print-hidden { display: none !important; }
-            .border-outline-variant { border-color: #000 !important; }
-            .text-surface-variant { color: #000 !important; }
-            .bg-surface { background: #fff !important; }
+            .no-print { display: none; }
+            body { background: white; }
         }
       `}</style>
-
-      {/* Main Content Canvas */}
-      <main className="flex-1 flex flex-col w-full">
-        {/* Invoice Document Container */}
-        <div className="flex-1 p-4 bg-[var(--surface-container-lowest)] w-full mx-auto print:m-0 print:p-0">
-
-          {/* Document Header Section */}
-          <div className="relative w-full mb-4">
-            {/* Branding Background Banner */}
-            <div className="absolute inset-0 z-0 bg-white overflow-hidden pointer-events-none rounded-t-xl">
-              <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full">
-                <polygon points="0,0 62,0 52,100 0,100" className="text-[var(--primary)]" fill="currentColor" />
-                <polygon points="64,0 70,0 60,100 54,100" className="text-[var(--secondary)]" fill="currentColor" />
-              </svg>
-            </div>
-
-            {/* Header Content */}
-            <div className="relative z-10 flex justify-between items-stretch p-6 pb-6">
-              {/* Left: Company Info */}
-              <div className="flex items-start gap-5 text-[var(--on-primary)] w-[62%] pr-4 relative z-10 -mt-2">
-                <div className="shrink-0 bg-white p-2 rounded-2xl h-20 w-20 flex items-center justify-center shadow-md">
-                  {company?.logo_url ? (
-                    <img alt="Logo" className="h-16 w-16 object-contain" src={company.logo_url} />
-                  ) : (
-                    <Truck size={40} className="text-[var(--primary)]" />
-                  )}
-                </div>
-                <div>
-                  <h1 className="font-manrope text-3xl font-extrabold text-white mb-1 tracking-tight">{company?.company_name || 'A & A Logistics'}</h1>
-                  <p className="text-[11px] font-medium text-white uppercase tracking-wider mb-3">
-                    {company?.tagline || 'Transport Contractors | Full Truck Load (FTL) | Trailer Services'}
-                  </p>
-                  <div className="space-y-1 text-sm text-white">
-                    <p>{company?.address || '2/7A, Jayalakshmi Nagar, Thondamuthur Road,'}</p>
-                    <p>{company?.city ? `${company.city}, ${company.pincode || ''}` : 'Vadamalli, B.U Post, Coimbatore - 641 046.'}</p>
-                    <div className="flex items-center gap-2 mt-2 text-white">
-                      <span className="material-symbols-outlined text-[16px]">call</span>
-                      <span>Mob : {company?.phone || '93603 33500, 89438 17500'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-white">
-                      <span className="material-symbols-outlined text-[16px]">mail</span>
-                      <span>{company?.email || 'info@aalogistics.com'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Invoice Metadata */}
-              <div className="w-[38%] pl-2 pr-6 flex flex-col justify-center items-end text-[var(--on-surface)] pb-2 mt-4 relative z-10">
-                <div className="inline-block">
-                  <h2 className="font-manrope text-[28px] font-bold text-[var(--primary)] text-center mb-6 mr-4 tracking-wide">TAX <span className="text-[var(--secondary)]">INVOICE</span></h2>
-
-                  <div className="grid grid-cols-[100px_10px_1fr] gap-x-3 gap-y-3 text-[13px] font-medium text-[var(--on-surface)]">
-                    {invoice.invoice_number && (
-                      <React.Fragment>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[18px] text-[var(--secondary)]">receipt_long</span>
-                          <span className="font-bold">Invoice No.</span>
-                        </div>
-                        <div className="font-bold text-center">:</div>
-                        <div className="text-[var(--on-surface-variant)]">{invoice.invoice_number}</div>
-                      </React.Fragment>
-                    )}
-
-                    {invoice.date && (
-                      <React.Fragment>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[18px] text-[var(--secondary)]">calendar_month</span>
-                          <span className="font-bold">Invoice Date</span>
-                        </div>
-                        <div className="font-bold text-center">:</div>
-                        <div className="text-[var(--on-surface-variant)]">{formatDate(invoice.date)}</div>
-                      </React.Fragment>
-                    )}
-
-                    {invoice.branch && (
-                      <React.Fragment>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[18px] text-[var(--secondary)]">pin_drop</span>
-                          <span className="font-bold">Branch</span>
-                        </div>
-                        <div className="font-bold text-center">:</div>
-                        <div className="text-[var(--on-surface-variant)]">{invoice.branch}</div>
-                      </React.Fragment>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tax Info Strip */}
-          <div className="flex justify-between items-center border-y border-[var(--outline-variant)] py-2 mb-4 px-4 bg-[var(--surface)] text-xs font-bold text-[var(--on-surface-variant)]">
-            <div className="flex gap-4">
-              <span>GSTIN : <span className="text-[var(--on-surface)]">{company?.gstin || '33AABM3640J1Z7'}</span></span>
-              <span className="text-[var(--outline)]">|</span>
-              <span>PAN : <span className="text-[var(--on-surface)]">{company?.pan || 'AABM3640J'}</span></span>
-            </div>
-            <div className="flex gap-4">
-              <span>State Code : <span className="text-[var(--on-surface)]">{company?.state_code || '33 (Tamil Nadu)'}</span></span>
-            </div>
-          </div>
-
-          {/* Data Blocks Grid */}
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            {/* Bill To Block */}
-            <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
-              <div className="relative">
-                {/* SVG Background Tab */}
-                <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-                  <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-                </svg>
-
-                <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">person</span>
-                  <span>CUSTOMER DETAILS / BILL TO</span>
-                </div>
-              </div>
-              <div className="p-3 grid grid-cols-[120px_1fr] gap-y-1.5 text-sm">
-                {invoice.customer_name && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">Customer Name</div>
-                    <div className="text-[var(--on-surface)]">{invoice.customer_name}</div>
-                  </>
-                )}
-
-                {invoice.customer_address && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">Billing Address</div>
-                    <div className="text-[var(--on-surface)]">{invoice.customer_address}</div>
-                  </>
-                )}
-
-                {invoice.customer_gstin && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">GSTIN</div>
-                    <div className="text-[var(--on-surface)] text-xs font-bold">{invoice.customer_gstin}</div>
-                  </>
-                )}
-
-                {invoice.customer_state && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">State</div>
-                    <div className="text-[var(--on-surface)]">{invoice.customer_state}</div>
-                  </>
-                )}
-
-                {invoice.customer_contact_person && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">Contact Person</div>
-                    <div className="text-[var(--on-surface)]">{invoice.customer_contact_person}</div>
-                  </>
-                )}
-
-                {invoice.customer_phone && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">Mobile</div>
-                    <div className="text-[var(--on-surface)]">{invoice.customer_phone}</div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Consignee Block */}
-            <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
-              <div className="relative">
-                {/* SVG Background Tab */}
-                <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-                  <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-                </svg>
-
-                <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-                  <span>CONSIGNEE DETAILS</span>
-                </div>
-              </div>
-              <div className="p-3 grid grid-cols-[120px_1fr] gap-y-1.5 text-sm">
-                <div className="font-bold text-[var(--on-surface-variant)]">Consignee Name</div>
-                <div className="text-[var(--on-surface)]">{invoice.consignee_name || 'Same as Billing'}</div>
-
-                {invoice.consignee_address && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">Delivery Address</div>
-                    <div className="text-[var(--on-surface)]">{invoice.consignee_address}</div>
-                  </>
-                )}
-
-                {invoice.consignee_gstin && (
-                  <>
-                    <div className="font-bold text-[var(--on-surface-variant)]">GSTIN</div>
-                    <div className="text-[var(--on-surface)]">{invoice.consignee_gstin}</div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Transport Details Grid */}
-          <div className="border border-[var(--outline-variant)] rounded overflow-hidden mb-3">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-[var(--surface-variant)] text-[var(--primary)] text-xs font-bold border-b border-[var(--outline-variant)]">
-                <tr>
-                  <th className="py-2 px-3 text-center w-[15%]">LR No & Date</th>
-                  <th className="py-2 px-3 text-center w-[15%]">Vehicle No</th>
-                  <th className="py-2 px-3 text-center w-[15%]">From / To</th>
-                  <th className="py-2 px-3 w-[35%]">Material Description</th>
-                  <th className="py-2 px-3 text-center w-[8%]">Pkgs</th>
-                  <th className="py-2 px-3 text-center w-[10%]">Actual Wt</th>
-                  <th className="py-2 px-3 text-center w-[10%]">Chargeable Wt</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm bg-white">
-                {(() => {
-                  const items = [];
-                  if (invoice.lr_number || invoice.vehicle_number || invoice.from_location || invoice.material_description || invoice.actual_weight) {
-                    items.push({
-                      lr_number: invoice.lr_number, lr_date: invoice.lr_date, vehicle_number: invoice.vehicle_number,
-                      from_location: invoice.from_location, to_location: invoice.to_location,
-                      description: invoice.material_description, packages: invoice.no_of_packages,
-                      actual_weight: invoice.actual_weight, chargeable_weight: invoice.chargeable_weight
-                    });
-                  }
-                  items.push(...goods);
-                  if (items.length === 0) items.push({} as any);
-
-                  return items.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-[var(--surface-bright)]">
-                      {idx === 0 && (
-                        <>
-                          <td className="py-2 px-3 text-center align-middle font-medium" rowSpan={items.length}>
-                            <div>{item.lr_number || ''}</div>
-                            <div className="text-[11px] text-[var(--on-surface-variant)] mt-1">{item.lr_date ? formatDate(item.lr_date) : ''}</div>
-                          </td>
-                          <td className="py-2 px-3 text-center align-middle text-xs font-bold" rowSpan={items.length}>{item.vehicle_number || ''}</td>
-                          <td className="py-2 px-3 text-center align-middle" rowSpan={items.length}>
-                            <div>{item.from_location || ''}</div>
-                            {item.from_location && item.to_location && <div className="text-[var(--on-surface-variant)] text-xs my-0.5">to</div>}
-                            <div>{item.to_location || ''}</div>
-                          </td>
-                        </>
-                      )}
-                      <td className="py-2 px-3 text-xs text-[var(--on-surface-variant)] align-top">
-                        {item.description || ''}
-                      </td>
-                      <td className="py-2 px-3 text-center align-top whitespace-nowrap">
-                        {item.packages || ''}
-                      </td>
-                      <td className="py-2 px-3 text-center align-top whitespace-nowrap">
-                        {item.actual_weight ? `${item.actual_weight}\u00A0kg` : ''}
-                      </td>
-                      <td className="py-2 px-3 text-center font-bold align-top whitespace-nowrap">
-                        {item.chargeable_weight ? `${item.chargeable_weight}\u00A0kg` : ''}
-                      </td>
-                    </tr>
-                  ));
-                })()}
-                {/* Spacing Row */}
-                <tr>
-                  <td className="py-1 px-3 h-6"></td>
-                  <td className="py-1 px-3"></td>
-                  <td className="py-1 px-3"></td>
-                  <td className="py-1 px-3"></td>
-                  <td className="py-1 px-3"></td>
-                  <td className="py-1 px-3"></td>
-                  <td className="py-1 px-3"></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Charges & Summary Area */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {/* Left Column: Bank & Terms */}
-            <div className="flex flex-col gap-4">
-              {/* Bank Details Block */}
-              <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white">
-                <div className="relative">
-                  {/* SVG Background Tab */}
-                  <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-                    <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-                  </svg>
-
-                  <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[16px]">account_balance</span>
-                    <span>BANK DETAILS</span>
-                  </div>
-                </div>
-                <div className="p-3 grid grid-cols-[100px_1fr] gap-y-1 text-sm relative z-10">
-                  <div className="font-bold text-[var(--on-surface-variant)]">Account Name</div>
-                  <div className="text-[var(--on-surface)] font-bold">{activeBank.account_name}</div>
-
-                  <div className="font-bold text-[var(--on-surface-variant)]">Bank Name</div>
-                  <div className="text-[var(--on-surface)]">{activeBank.bank_name}</div>
-
-                  <div className="font-bold text-[var(--on-surface-variant)]">Account No.</div>
-                  <div className="text-[var(--on-surface)] font-bold tracking-wider">{activeBank.account_number}</div>
-
-                  <div className="font-bold text-[var(--on-surface-variant)]">IFSC Code</div>
-                  <div className="text-[var(--on-surface)] text-xs font-bold">{activeBank.ifsc_code}</div>
-
-                  <div className="font-bold text-[var(--on-surface-variant)]">Branch</div>
-                  <div className="text-[var(--on-surface)]">{activeBank.branch}</div>
-
-                  <div className="font-bold text-[var(--on-surface-variant)]">UPI ID</div>
-                  <div className="text-[var(--on-surface)]">{activeBank.upi_id}</div>
-                </div>
-              </div>
-
-              {/* Terms & Conditions */}
-              <div className="border border-[var(--outline-variant)] rounded p-3 bg-[var(--surface)] text-[11px] font-medium text-[var(--on-surface-variant)]">
-                <h4 className="text-xs font-bold text-[var(--primary)] mb-2 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">gavel</span> TERMS & CONDITIONS
-                </h4>
-                {invoice.terms ? (
-                  <ol className="list-decimal pl-4 space-y-1">
-                    {invoice.terms.split('\\n').filter(Boolean).map((t, i) => (
-                      <li key={i}>{t}</li>
-                    ))}
-                  </ol>
+      <div className="max-w-5xl mx-auto bg-[#ffffff] rounded-xl shadow-lg overflow-hidden border border-[#c3c5d9]">
+        {/* Invoice Header */}
+        <div className="relative bg-[#003ec7] overflow-hidden p-3">
+          <div className="relative z-10 flex flex-row justify-between items-center gap-3">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-1 shrink-0 mt-0.5">
+                {company?.logo_url ? (
+                  <img alt="Logo" className="w-full h-full object-contain" src={company.logo_url} />
                 ) : (
-                  <ol className="list-decimal pl-4 space-y-1">
-                    <li>Payment is due within the agreed credit period.</li>
-                    <li>Interest may be charged on overdue payments.</li>
-                    <li>Subject to jurisdiction of Coimbatore.</li>
-                    <li>Goods are transported at owner's risk unless otherwise agreed.</li>
-                    <li>Please quote Invoice Number while making payment.</li>
-                  </ol>
+                  <Truck size={32} className="text-[#003ec7]" />
                 )}
               </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight leading-tight mb-1.5">{company?.company_name || 'A & A LOGISTICS'}</h1>
+                <p className="text-[10px] font-medium text-white/90 uppercase tracking-wider mb-2.5">
+                  {company?.tagline || 'Transport Contractors | Full Truck Load (FTL) | Trailer Services'}
+                </p>
+                <div className="text-white/80 text-[11px] flex flex-wrap items-center gap-x-6 gap-y-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[13px]">location_on</span>
+                    {company?.address || '2/7A, Jayalakshmi Nagar, Thondamuthur Road'}, {company?.city ? `${company.city} - ${company.pincode || ''}` : 'Coimbatore - 641 046'}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[13px]">fingerprint</span>
+                    GSTIN: {company?.gstin || '33AADCT0694E1ZP'}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[13px]">call</span>
+                    Mob: {company?.phone || '93603 33500, 89438 17500'}
+                  </span>
+                </div>
+              </div>
             </div>
-
-            {/* Right Column: Financials */}
-            {/* Charges Block */}
-            <div className="border border-[var(--outline-variant)] rounded-xl overflow-hidden bg-white h-full flex flex-col">
-              <div className="relative">
-                {/* SVG Background Tab */}
-                <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="absolute top-0 left-0 w-[65%] h-full text-[var(--secondary)]">
-                  <polygon points="0,0 100,0 85,100 0,100" fill="currentColor" />
-                </svg>
-
-                <div className="relative text-[var(--on-secondary)] px-4 py-1.5 font-bold text-xs flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[16px]">request_quote</span>
-                    <span>CHARGES</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="bg-[#04151c] text-white px-3 py-0.5 rounded text-[10px]">Amount (₹)</span>
-                  </div>
-                </div>
-              </div>
-              <div className="p-0 text-sm mt-1">
-                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                  <span className="text-[var(--on-surface-variant)]">Freight Charge</span>
-                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.freight_charge)}</span>
-                </div>
-                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                  <span className="text-[var(--on-surface-variant)]">Loading Charge</span>
-                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.loading_charge)}</span>
-                </div>
-                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                  <span className="text-[var(--on-surface-variant)]">Unloading Charge</span>
-                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.unloading_charge)}</span>
-                </div>
-                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                  <span className="text-[var(--on-surface-variant)]">Toll Charge</span>
-                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.toll_charge)}</span>
-                </div>
-                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                  <span className="text-[var(--on-surface-variant)]">Detention/Halting</span>
-                  <span className="text-[var(--on-surface)] text-right">{fmt((Number(invoice.detention_charge) || 0) + (Number(invoice.halting_charge) || 0))}</span>
-                </div>
-                <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)]">
-                  <span className="text-[var(--on-surface-variant)]">Other Charges</span>
-                  <span className="text-[var(--on-surface)] text-right">{fmt(invoice.other_charges)}</span>
-                </div>
-
-                {/* Sub Total */}
-                <div className="flex justify-between py-1.5 px-3 bg-[var(--surface)] text-xs font-bold border-y border-[var(--outline-variant)]">
-                  <span className="text-[var(--primary)]">Sub Total</span>
-                  <span className="text-[var(--primary)] text-right">{fmt(subTotal)}</span>
-                </div>
-
-                {/* Taxes */}
-                {isIntraState ? (
-                  <>
-                    <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
-                      <span className="text-[var(--on-surface-variant)]">CGST @ {cgstRate}%</span>
-                      <span className="text-[var(--on-surface)] text-right">{fmt(cgstAmt)}</span>
-                    </div>
-                    <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
-                      <span className="text-[var(--on-surface-variant)]">SGST @ {sgstRate}%</span>
-                      <span className="text-[var(--on-surface)] text-right">{fmt(sgstAmt)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between py-1 px-3 hover:bg-[var(--surface-bright)] text-sm">
-                    <span className="text-[var(--on-surface-variant)]">IGST @ {igstRate}%</span>
-                    <span className="text-[var(--on-surface)] text-right">{fmt(igstAmt)}</span>
-                  </div>
-                )}
-              </div>
-              {/* Grand Total */}
-              <div className="flex justify-between items-center py-2 px-3 bg-[var(--primary-container)] text-[var(--on-primary-container)] font-manrope text-lg rounded-b mt-auto">
-                <span className="font-bold">GRAND TOTAL</span>
-                <span className="font-bold">{grandTotal > 0 ? `₹ ${fmt(grandTotal)}` : ''}</span>
-              </div>
+            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-lg border border-white/20 flex items-center justify-center text-center">
+              <h2 className="text-[13px] font-bold text-white tracking-widest uppercase leading-tight">TAX<br />INVOICE</h2>
             </div>
           </div>
-
-          {/* Amount in Words & Signatures */}
-          {grandTotal > 0 && (
-            <div className="border border-[var(--outline-variant)] rounded overflow-hidden mb-3">
-              <div className="bg-[var(--surface)] py-1.5 px-3 flex flex-col md:flex-row md:items-center gap-2">
-                <span className="text-xs font-bold text-[var(--secondary)]">Amount in Words :</span>
-                <span className="font-manrope text-lg text-[var(--primary)] font-bold italic">Rupees {numWords(grandTotal)}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-6 pt-16 pb-2 mt-4 border-t border-dashed border-[var(--outline-variant)] text-[11px] text-[var(--on-surface)]">
-            {/* Column 1: Consignor */}
-            <div className="flex flex-col justify-end text-center">
-              <div className="border-t border-black w-4/5 mx-auto pt-1 font-bold">
-                Consignor’s Signature & Seal
-              </div>
-            </div>
-
-            {/* Column 2: Logistics */}
-            <div className="flex flex-col justify-end text-center">
-              <div className="border-t border-black w-4/5 mx-auto pt-1 font-bold uppercase">
-                For {company?.company_name || 'A & A LOGISTICS'}
-              </div>
-              <div className="font-medium mt-0.5">Authorized Signatory</div>
-            </div>
-
-            {/* Column 3: Receiver */}
-            <div className="flex flex-col justify-end text-left text-[10px] pl-4">
-              <div className="font-bold text-[11px] mb-1">Receiver’s Acknowledgement</div>
-              <div className="mb-3 text-[9.5px]">Goods Received in Good Condition (Subject to Verification)</div>
-              <div className="flex items-end gap-2 mb-1.5">
-                <span className="w-12">Name:</span>
-                <span className="border-b border-black flex-1"></span>
-              </div>
-              <div className="flex items-end gap-2 mb-1.5">
-                <span className="w-12">Signature:</span>
-                <span className="border-b border-black flex-1"></span>
-              </div>
-              <div className="flex items-end gap-2">
-                <span className="w-12">Date:</span>
-                <span className="border-b border-black flex-1"></span>
-              </div>
-            </div>
-          </div>
-
         </div>
-      </main>
+
+        {/* Info Banner */}
+        <div className="grid grid-cols-4 gap-3 p-3 bg-[#f2f4f6] border-b border-[#c3c5d9]">
+          <div className="space-y-1">
+            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
+              <span className="material-symbols-outlined text-[10px]">tag</span> INVOICE NO.
+            </p>
+            <p className="text-[11px] font-semibold text-[#003ec7]">{invoice.invoice_number || '—'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
+              <span className="material-symbols-outlined text-[10px]">calendar_today</span> INVOICE DATE
+            </p>
+            <p className="text-[11px] font-semibold">{invoice.date ? new Date(invoice.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
+              <span className="material-symbols-outlined text-[10px]">local_shipping</span> VEHICLE NO.
+            </p>
+            <p className="text-[11px] font-semibold">{invoice.vehicle_number || '—'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
+              <span className="material-symbols-outlined text-[10px]">pin_drop</span> FROM / TO
+            </p>
+            <p className="text-[11px] font-semibold">
+              {invoice.from_location || '—'} / {invoice.to_location || '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* Bento Grid Sections */}
+        <div className="p-3 grid grid-cols-2 gap-3">
+          {/* Bill To Card */}
+          <div className="border border-[#e5e7eb] rounded-lg overflow-hidden bg-white">
+            <div className="bg-[#f4f6fb] px-3 py-1.5 border-b border-[#e5e7eb]">
+              <h3 className="text-[9px] font-semibold tracking-wider text-[#3b82f6] uppercase">Customer Details / Bill To</h3>
+            </div>
+            <div className="p-3 space-y-2">
+              <div>
+                <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">Name</p>
+                <p className="text-[10px] font-bold text-[#111827]">{invoice.customer_name || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">Address</p>
+                <p className="text-[10px] text-[#374151] leading-snug">{invoice.customer_address || '—'}</p>
+              </div>
+              {invoice.customer_phone && (
+                <div>
+                  <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">Contact No.</p>
+                  <p className="text-[10px] text-[#374151]">{invoice.customer_phone}</p>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <div className="flex-1 bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+                  <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">GSTIN</p>
+                  <p className="text-[10px] font-bold text-[#3b82f6]">{invoice.customer_gstin || '—'}</p>
+                </div>
+                {invoice.customer_state && (
+                  <div className="flex-1 bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+                    <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">State</p>
+                    <p className="text-[10px] font-bold text-[#374151]">{invoice.customer_state}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Consignee Card */}
+          <div className="border border-[#e5e7eb] rounded-lg overflow-hidden bg-white">
+            <div className="bg-[#ebf5e6] px-3 py-1.5 border-b border-[#e5e7eb]">
+              <h3 className="text-[9px] font-semibold tracking-wider text-[#16a34a] uppercase">Consignee Details</h3>
+            </div>
+            <div className="p-3 space-y-2">
+              <div>
+                <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">Name</p>
+                <p className="text-[10px] font-bold text-[#111827]">{invoice.consignee_name || 'Same as Billing'}</p>
+              </div>
+              {invoice.consignee_address && (
+                <div>
+                  <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">Delivery Address</p>
+                  <p className="text-[10px] text-[#374151] leading-snug">{invoice.consignee_address}</p>
+                </div>
+              )}
+              {invoice.consignee_phone && (
+                <div>
+                  <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">Contact No.</p>
+                  <p className="text-[10px] text-[#374151]">{invoice.consignee_phone}</p>
+                </div>
+              )}
+              {invoice.consignee_gstin && (
+                <div className="bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+                  <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">GSTIN</p>
+                  <p className="text-[10px] font-bold text-[#16a34a]">{invoice.consignee_gstin}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Goods Detail Table */}
+        <div className="mx-2 mb-2 border border-[#c3c5d9] rounded-lg overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-[#dbeafe] border-b border-[#c3c5d9] text-[#1e3a8a]">
+              <tr>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">LR No & Date</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">Vehicle No</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">From / To</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">Material Description</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">Pkgs</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">Actual Wt</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">Chargeable Wt</th>
+              </tr>
+            </thead>
+            <tbody className="text-[#191c1e]">
+              {goods.length > 0 ? goods.map((g: any, i: number) => (
+                <tr key={i}>
+                  {i === 0 && (
+                    <>
+                      <td rowSpan={goods.length} className="px-2 py-1.5 text-center align-middle text-[10px]">
+                        {invoice.lr_number || invoice.invoice_number || '—'}
+                        {invoice.lr_date && <><br /><span className="text-[9px] text-gray-500">{new Date(invoice.lr_date).toLocaleDateString('en-IN')}</span></>}
+                      </td>
+                      <td rowSpan={goods.length} className="px-2 py-1.5 text-center align-middle font-bold text-[10px]">
+                        {invoice.vehicle_number || '—'}
+                      </td>
+                      <td rowSpan={goods.length} className="px-2 py-1.5 text-center align-middle text-[10px] lowercase">
+                        {invoice.from_location || '—'} <br /> to <br /> {invoice.to_location || '—'}
+                      </td>
+                    </>
+                  )}
+                  <td className="px-2 py-1.5 text-center text-[10px]">{g.description || '—'}</td>
+                  <td className="px-2 py-1.5 text-center text-[10px]">{g.packages || '—'}</td>
+                  <td className="px-2 py-1.5 text-center text-[10px]">{g.actual_weight ? `${g.actual_weight} kg` : '—'}</td>
+                  <td className="px-2 py-1.5 text-center text-[10px] font-bold">{g.charged_weight || g.weight ? `${g.charged_weight || g.weight} kg` : '—'}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={7} className="px-2 py-2 text-center text-[10px]">No goods</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Bottom Section: Summary & Signs */}
+        <div className="grid grid-cols-2 gap-3 p-3 bg-[#f2f4f6] border-t border-[#c3c5d9]">
+
+          {/* Left Column: Bank Details & Terms */}
+          <div className="flex flex-col gap-3">
+            {/* Bank Details */}
+            <div className="bg-white p-3 rounded-xl border border-[#c3c5d9]">
+              <p className="text-[9px] font-semibold tracking-wider text-[#434656] uppercase tracking-widest mb-2 border-b border-[#e5e7eb] pb-1">Bank Details</p>
+              <div className="grid grid-cols-[100px_1fr] gap-y-1 text-[10px]">
+                <span className="text-[#6b7280]">Account Name</span><span className="font-bold">{activeBank.account_name}</span>
+                <span className="text-[#6b7280]">Bank Name</span><span>{activeBank.bank_name}</span>
+                <span className="text-[#6b7280]">Account No.</span><span className="font-bold">{activeBank.account_number}</span>
+                <span className="text-[#6b7280]">IFSC Code</span><span className="font-bold text-[#3b82f6]">{activeBank.ifsc_code}</span>
+                <span className="text-[#6b7280]">Branch</span><span>{activeBank.branch}</span>
+                <span className="text-[#6b7280]">UPI ID</span><span>{activeBank.upi_id}</span>
+              </div>
+            </div>
+
+            {/* Terms & Conditions */}
+            <div className="bg-white p-3 rounded-xl border border-[#c3c5d9] mt-auto">
+              <p className="text-[9px] font-semibold tracking-wider text-[#434656] uppercase tracking-widest mb-2 border-b border-[#e5e7eb] pb-1">Terms & Conditions</p>
+              {invoice.terms ? (
+                <div className="text-[#434656] text-[9px] space-y-1">
+                  {invoice.terms.split('\n').filter(Boolean).map((t, i) => (
+                    <div key={i} className="flex gap-1.5"><span className="font-bold">{i + 1}.</span><span>{t}</span></div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[#434656] text-[9px] space-y-1">
+                  <div className="flex gap-1.5"><span className="font-bold">1.</span><span>Payment is due within the agreed credit period.</span></div>
+                  <div className="flex gap-1.5"><span className="font-bold">2.</span><span>Interest may be charged on overdue payments.</span></div>
+                  <div className="flex gap-1.5"><span className="font-bold">3.</span><span>Subject to jurisdiction of {company?.city || 'Coimbatore'}.</span></div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Charges Summary */}
+          <div className="bg-[#003ec7] text-white p-3 rounded-xl space-y-2 shadow-xl flex flex-col">
+            <h3 className="text-[9px] font-semibold tracking-wider uppercase tracking-widest border-b border-white/20 pb-2">Charges</h3>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px]"><span className="text-white/80">Freight Charge</span><span className="font-medium">{invoice.freight_charge ? formatCurrency(invoice.freight_charge) : '—'}</span></div>
+              {Number(invoice.loading_charge) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Loading Charge</span><span className="font-medium">{formatCurrency(invoice.loading_charge)}</span></div>}
+              {Number(invoice.unloading_charge) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Unloading Charge</span><span className="font-medium">{formatCurrency(invoice.unloading_charge)}</span></div>}
+              {Number(invoice.toll_charge) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Toll Charge</span><span className="font-medium">{formatCurrency(invoice.toll_charge)}</span></div>}
+              {Number(invoice.detention_charge) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Detention/Halting</span><span className="font-medium">{formatCurrency(invoice.detention_charge)}</span></div>}
+              {Number(invoice.other_charges) > 0 && <div className="flex justify-between text-[10px]"><span className="text-white/80">Other Charges</span><span className="font-medium">{formatCurrency(invoice.other_charges)}</span></div>}
+            </div>
+
+            <div className="flex justify-between text-[11px] font-semibold pt-1 border-t border-white/20">
+              <span>Sub Total</span><span>{formatCurrency(subTotal)}</span>
+            </div>
+
+            {invoice.party_code === 'igst' || (!isIntraState && invoice.party_code !== 'cgst_sgst') ? (
+              <div className="flex justify-between text-[10px] text-white/90">
+                <span>IGST @ {gstRate}%</span><span>{formatCurrency(igstAmt)}</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between text-[10px] text-white/90">
+                  <span>CGST @ {cgstRate}%</span><span>{formatCurrency(cgstAmt)}</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-white/90">
+                  <span>SGST @ {sgstRate}%</span><span>{formatCurrency(sgstAmt)}</span>
+                </div>
+              </>
+            )}
+
+            <div className="mt-auto pt-3 border-t border-white/20">
+              <div className="flex justify-between items-end">
+                <span className="text-[14px] font-bold tracking-wider">GRAND TOTAL</span>
+                <span className="text-[18px] font-bold text-white bg-white/20 px-3 py-1 rounded-lg">₹ {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="mt-2 text-right">
+                <span className="text-[9px] text-white/70 block mb-0.5">Amount in Words</span>
+                <span className="text-[10px] font-medium leading-tight">Rupees {numWords(grandTotal)}</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Footer Signature */}
+        <div className="px-6 py-4 flex justify-between items-end">
+          <div className="text-[10px] text-gray-500">
+
+          </div>
+          <div className="text-center w-64">
+            <div className="border-t border-[#191c1e] pt-1 font-bold text-[11px] text-[#191c1e] uppercase">
+              For {company?.company_name || 'A & A LOGISTICS'}
+            </div>
+            <div className="font-medium text-[9px] text-[#434656] mt-0.5">Authorized Signatory</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
