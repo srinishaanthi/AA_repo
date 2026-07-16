@@ -7,7 +7,7 @@ const PAGE_SIZE = 10;
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-600',
   sent: 'bg-blue-50 text-blue-700',
-  approved: 'bg-green-50 text-green-700',
+  accepted: 'bg-green-50 text-green-700',
   rejected: 'bg-red-50 text-red-700',
   converted: 'bg-purple-50 text-purple-700',
 };
@@ -42,7 +42,8 @@ export default function QuotationList({ onNav }: { onNav: (s: NavState) => void 
   }
 
   async function convertToLR(q: Quotation) {
-    onNav({ page: 'lr-create' });
+    await api.from('quotations').update({ status: 'converted' }).eq('id', q.id);
+    onNav({ page: 'lr-create', fromQuotationId: q.id });
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -68,7 +69,7 @@ export default function QuotationList({ onNav }: { onNav: (s: NavState) => void 
             <option value="">All Status</option>
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
-            <option value="approved">Approved</option>
+            <option value="accepted">Accepted</option>
             <option value="rejected">Rejected</option>
             <option value="converted">Converted</option>
           </select>

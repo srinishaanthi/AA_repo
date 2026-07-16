@@ -251,4 +251,5 @@ export type Page =
 export interface NavState {
   page: Page;
   id?: string;
+  fromQuotationId?: string;
 }

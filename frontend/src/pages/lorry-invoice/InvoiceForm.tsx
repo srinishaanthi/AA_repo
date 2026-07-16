@@ -9,9 +9,9 @@ import { Save, Printer, ArrowLeft, Eye, Plus, Trash2, ChevronDown, ChevronUp, Fi
 
 const emptyGoods = (): any => ({ lr_number: '', lr_date: '', vehicle_number: '', from_location: '', to_location: '', description: '', packages: '', actual_weight: '', chargeable_weight: '' });
 
-interface Props { editId?: string; onNav: (s: NavState) => void; }
+interface Props { editId?: string; fromQuotationId?: string; onNav: (s: NavState) => void; }
 
-export default function InvoiceForm({ editId, onNav }: Props) {
+export default function InvoiceForm({ editId, fromQuotationId, onNav }: Props) {
   const [form, setForm] = useState<Partial<LorryInvoice>>({
     date: new Date().toISOString().split('T')[0],
     goods: [emptyGoods()],
@@ -31,7 +31,36 @@ export default function InvoiceForm({ editId, onNav }: Props) {
   });
   const [editBillTo, setEditBillTo] = useState(false);
 
-  useEffect(() => { loadMaster(); if (editId) loadInvoice(editId); else genNumber(); }, [editId]);
+  useEffect(() => { 
+    loadMaster(); 
+    if (editId) loadInvoice(editId); 
+    else if (fromQuotationId) loadQuotation(fromQuotationId);
+    else genNumber(); 
+  }, [editId, fromQuotationId]);
+
+  async function loadQuotation(id: string) {
+    const { data } = await api.from('quotations').select('*').eq('id', id).maybeSingle();
+    if (data) {
+      const g = emptyGoods();
+      g.description = `Vehicle: ${data.vehicle_type || ''}`;
+      g.actual_weight = data.weight || '';
+      g.from_location = data.from_location || '';
+      g.to_location = data.to_location || '';
+      const n = await getNextNumber('invoice');
+      setForm(f => ({
+        ...f,
+        invoice_number: n,
+        customer_id: data.customer_id,
+        customer_name: data.customer_name,
+        freight_charge: data.rate || 0,
+        loading_charge: data.loading_charge || 0,
+        unloading_charge: data.unloading_charge || 0,
+        other_charges: data.other_charges || 0,
+        gst_rate: data.gst_rate || 0,
+        goods: [g],
+      }));
+    }
+  }
 
   async function loadMaster() {
     const [compRes, bankRes, lrRes, custRes] = await Promise.all([

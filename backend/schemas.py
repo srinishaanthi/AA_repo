@@ -239,6 +239,13 @@ class QuotationOut(QuotationBase):
     class Config:
         from_attributes = True
 
+class EmailRequest(BaseModel):
+    to_email: str
+    subject: str
+    body: str
+    attachment_base64: Optional[str] = None
+    filename: Optional[str] = None
+
 class CompanySettingsBase(BaseModel):
     company_name: str
     gstin: Optional[str] = None

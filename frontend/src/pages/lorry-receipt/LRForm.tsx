@@ -14,6 +14,7 @@ const emptyGoods = (): GoodsLine => ({
 
 interface Props {
   editId?: string;
+  fromQuotationId?: string;
   onNav: (s: NavState) => void;
 }
 
@@ -30,7 +31,7 @@ const sections: Section[] = [
   { key: 'charges', label: 'Charges' },
 ];
 
-export default function LRForm({ editId, onNav }: Props) {
+export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
   const [form, setForm] = useState<Partial<LorryReceipt>>({
     date: new Date().toISOString().split('T')[0],
     freight_status: 'To Pay',
@@ -74,8 +75,33 @@ export default function LRForm({ editId, onNav }: Props) {
   useEffect(() => {
     loadMasterData();
     if (editId) loadLR(editId);
+    else if (fromQuotationId) loadQuotation(fromQuotationId);
     else generateLRNumber();
-  }, [editId]);
+  }, [editId, fromQuotationId]);
+
+  async function loadQuotation(id: string) {
+    const { data } = await api.from('quotations').select('*').eq('id', id).maybeSingle();
+    if (data) {
+      const g = emptyGoods();
+      g.description = `Vehicle: ${data.vehicle_type || ''}`;
+      g.actual_weight = data.weight || '';
+      const n = await getNextNumber('lr');
+      setForm(f => ({
+        ...f,
+        lr_number: n,
+        from_location: data.from_location,
+        to_location: data.to_location,
+        vehicle_number: data.vehicle_type, // Quotation has type, not number
+        consignor_name: data.customer_name,
+        consignor_id: data.customer_id,
+        freight_charge: data.rate || 0,
+        loading_charge: data.loading_charge || 0,
+        unloading_charge: data.unloading_charge || 0,
+        other_charges: data.other_charges || 0,
+        goods: [g],
+      }));
+    }
+  }
 
   async function loadMasterData() {
     const [compRes, custRes, vehicleRes, driverRes] = await Promise.all([

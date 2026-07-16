@@ -8,6 +8,13 @@ from database import engine, Base, get_db, SessionLocal
 import models
 import schemas
 import uuid
+import smtplib
+from email.message import EmailMessage
+import base64
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -535,6 +542,36 @@ def update_number_series(id: str, series: schemas.NumberSeriesCreate, db: Sessio
     db.commit()
     db.refresh(db_obj)
     return db_obj
+
+@app.post("/api/send-email")
+def send_email(req: schemas.EmailRequest):
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = os.environ.get("SMTP_PORT")
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_pass = os.environ.get("SMTP_PASS")
+    
+    if not all([smtp_host, smtp_port, smtp_user, smtp_pass]):
+        raise HTTPException(status_code=500, detail="SMTP credentials not configured on the server.")
+        
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = req.subject
+        msg["From"] = smtp_user
+        msg["To"] = req.to_email
+        msg.set_content(req.body)
+        
+        if req.attachment_base64 and req.filename:
+            pdf_data = base64.b64decode(req.attachment_base64.split(",")[-1])
+            msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename=req.filename)
+        
+        with smtplib.SMTP(smtp_host, int(smtp_port)) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+            
+        return {"ok": True, "message": "Email sent successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

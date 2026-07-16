@@ -4,7 +4,7 @@ import { Quotation, Customer, NavState, CompanySettings, Bank } from '../../type
 import QuotationPdfPreview from './QuotationPdfPreview';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
-import { Save, Printer, ArrowLeft, Eye, FileText, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Printer, ArrowLeft, Eye, FileText, Download, ChevronDown, ChevronUp, MessageCircle, Mail, ArrowRight } from 'lucide-react';
 
 interface Props { editId?: string; onNav: (s: NavState) => void; }
 
@@ -97,6 +97,101 @@ export default function QuotationForm({ editId, onNav }: Props) {
     if (wasHidden) setShowPreview(false);
   };
 
+  const sendWhatsApp = () => {
+    const text = `Quotation ${form.quotation_number || ''}\n\nHi ${form.customer_name || ''},\n\nPlease find the details of our quotation for your transport requirements.\n\nFrom: ${form.from_location || ''}\nTo: ${form.to_location || ''}\nVehicle: ${form.vehicle_type || ''}\nFreight Rate: Rs. ${form.rate || ''}\n\nPlease let us know if you have any questions.\n\nThank you!`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const [emailData, setEmailData] = useState({ to: '', subject: '', body: '', attachPdf: true });
+  const [emailEdited, setEmailEdited] = useState(false);
+  const [previewTab, setPreviewTab] = useState<'pdf' | 'email'>('pdf');
+
+  useEffect(() => {
+    if (!emailEdited) {
+      const customer = customers.find(c => c.id === form.customer_id);
+      setEmailData(d => ({
+        ...d,
+        to: customer?.email || '',
+        subject: `Quotation ${form.quotation_number || ''}`,
+        body: `Hi ${form.customer_name || ''},\n\nPlease find attached the quotation ${form.quotation_number || ''} for your transport requirements.\n\nFrom: ${form.from_location || ''}\nTo: ${form.to_location || ''}\nVehicle: ${form.vehicle_type || ''}\nFreight Rate: Rs. ${form.rate || ''}\n\nPlease let us know if you have any questions.\n\nThank you!`
+      }));
+    }
+  }, [form.customer_id, form.quotation_number, form.customer_name, form.from_location, form.to_location, form.vehicle_type, form.rate, customers, emailEdited]);
+
+  const resetEmail = () => { setEmailEdited(false); };
+
+  const confirmSendEmail = async () => {
+    setSaving(true);
+    let pdfBase64 = null;
+    let wasHidden = !showPreview;
+    let previousTab = previewTab;
+
+    if (emailData.attachPdf) {
+      if (wasHidden) setShowPreview(true);
+      if (previewTab !== 'pdf') setPreviewTab('pdf');
+      
+      // Wait for DOM to update and render the PDF tab
+      await new Promise(r => setTimeout(r, 150));
+      
+      const element = document.getElementById('print-section');
+      if (element) {
+        const opt = {
+          margin: 0,
+          filename: `Quotation_${form.quotation_number || 'New'}.pdf`,
+          image: { type: 'jpeg', quality: 1 },
+          html2canvas: { scale: 2, useCORS: true, windowWidth: 794 },
+          jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        pdfBase64 = await html2pdf().set(opt).from(element).outputPdf('datauristring');
+      }
+    }
+
+    try {
+      const payload: any = {
+        to_email: emailData.to,
+        subject: emailData.subject,
+        body: emailData.body,
+      };
+      
+      if (pdfBase64) {
+        payload.attachment_base64 = pdfBase64;
+        payload.filename = `Quotation_${form.quotation_number || 'New'}.pdf`;
+      }
+      
+      const res = await fetch('http://localhost:8000/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to send email');
+      }
+      
+      alert("Email sent successfully!");
+    } catch (e: any) {
+      alert("Error sending email: " + e.message);
+    } finally {
+      if (wasHidden && emailData.attachPdf) setShowPreview(false);
+      if (previousTab !== 'pdf') setPreviewTab(previousTab);
+      setSaving(false);
+    }
+  };
+
+  const convertToLR = async () => {
+    if (!editId) { alert('Please save the quotation first.'); return; }
+    await handleSave('converted');
+    onNav({ page: 'lr-create', fromQuotationId: editId });
+  };
+
+  const convertToInvoice = async () => {
+    if (!editId) { alert('Please save the quotation first.'); return; }
+    await handleSave('converted');
+    onNav({ page: 'invoice-create', fromQuotationId: editId });
+  };
+
   const inp = 'form-input';
   const lbl = 'form-label';
   const toggle = (k: string) => setExpanded(e => ({ ...e, [k]: !e[k] }));
@@ -146,6 +241,15 @@ export default function QuotationForm({ editId, onNav }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {editId && (
+            <>
+              <button onClick={sendWhatsApp} className="btn-secondary text-green-600 border-green-200 hover:bg-green-50" title="Send by WhatsApp"><MessageCircle size={15} /></button>
+              <div className="w-px h-5 bg-gray-200 mx-1" />
+              <button onClick={convertToLR} className="btn-secondary text-purple-600 border-purple-200 hover:bg-purple-50 flex items-center gap-1"><ArrowRight size={13} /> LR</button>
+              <button onClick={convertToInvoice} className="btn-secondary text-indigo-600 border-indigo-200 hover:bg-indigo-50 flex items-center gap-1"><ArrowRight size={13} /> Invoice</button>
+              <div className="w-px h-5 bg-gray-200 mx-1" />
+            </>
+          )}
           <button onClick={() => setShowPreview(p => !p)} className={`btn-ghost ${showPreview ? 'text-brand' : ''}`}>
             <Eye size={15} />{showPreview ? 'Hide' : 'Show'} Preview
           </button>
@@ -183,7 +287,7 @@ export default function QuotationForm({ editId, onNav }: Props) {
                         <div><label className={lbl}>Valid Till</label><input type="date" className={inp} value={form.valid_till || ''} onChange={e => setF('valid_till', e.target.value)} /></div>
                         <div><label className={lbl}>Status</label>
                           <select className={inp} value={form.status || 'draft'} onChange={e => setF('status', e.target.value)}>
-                            {['draft', 'sent', 'approved', 'rejected'].map(st => <option key={st} value={st}>{st}</option>)}
+                            {['draft', 'sent', 'accepted', 'rejected', 'converted'].map(st => <option key={st} value={st}>{st.charAt(0).toUpperCase() + st.slice(1)}</option>)}
                           </select>
                         </div>
                       </div>
@@ -297,9 +401,58 @@ export default function QuotationForm({ editId, onNav }: Props) {
 
         {/* Preview */}
         <div className={`flex-1 overflow-auto bg-gray-200 p-6 print-wrapper ${showPreview ? 'block' : 'hidden'}`}>
-          <div className="min-w-fit mx-auto">
-            <div className="text-xs text-gray-400 text-center mb-3 font-medium no-print">LIVE PREVIEW — updates as you type</div>
-            <div id="print-section" className="shadow-2xl overflow-hidden print:!shadow-none print:!rounded-none relative">
+          <div className="min-w-fit mx-auto max-w-[794px]">
+            
+            <div className="no-print flex items-center justify-center mb-4 space-x-2">
+              <button 
+                onClick={() => setPreviewTab('pdf')} 
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${previewTab === 'pdf' ? 'bg-white text-brand shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-300/50'}`}
+              >
+                Quotation Preview
+              </button>
+              <button 
+                onClick={() => setPreviewTab('email')} 
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${previewTab === 'email' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-300/50'}`}
+              >
+                <Mail size={14} /> Email Preview
+              </button>
+            </div>
+
+            {previewTab === 'email' && (
+              <div className="no-print mb-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <Mail size={18} className="text-blue-600" /> Email Editor
+                  </h3>
+                  <button onClick={resetEmail} className="text-xs text-blue-600 hover:underline">Reset to Default</button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="form-label">To Email</label>
+                    <input className="form-input" value={emailData.to} onChange={e => { setEmailEdited(true); setEmailData(d => ({ ...d, to: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label className="form-label">Subject</label>
+                    <input className="form-input" value={emailData.subject} onChange={e => { setEmailEdited(true); setEmailData(d => ({ ...d, subject: e.target.value })); }} />
+                  </div>
+                  <div>
+                    <label className="form-label">Body Message</label>
+                    <textarea rows={6} className="form-input" value={emailData.body} onChange={e => { setEmailEdited(true); setEmailData(d => ({ ...d, body: e.target.value })); }} />
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" checked={emailData.attachPdf} onChange={e => setEmailData(d => ({ ...d, attachPdf: e.target.checked }))} className="w-4 h-4 text-brand rounded focus:ring-brand" />
+                      <span className="text-sm font-medium text-gray-700">Attach Quotation PDF</span>
+                    </label>
+                    <button onClick={confirmSendEmail} disabled={saving} className="btn-primary bg-blue-600 hover:bg-blue-700 border-none px-6">
+                      {saving ? 'Sending...' : 'Send Email'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div id="print-section" className={`shadow-2xl overflow-hidden print:!shadow-none print:!rounded-none relative ${previewTab === 'pdf' ? 'block' : 'hidden print:block'}`}>
               <QuotationPdfPreview quotation={form} company={company} onDownload={downloadPDF} />
             </div>
           </div>
