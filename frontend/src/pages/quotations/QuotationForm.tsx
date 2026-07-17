@@ -435,9 +435,15 @@ export default function QuotationForm({ editId, onNav }: Props) {
                     <label className="form-label">Subject</label>
                     <input className="form-input" value={emailData.subject} onChange={e => { setEmailEdited(true); setEmailData(d => ({ ...d, subject: e.target.value })); }} />
                   </div>
-                  <div>
-                    <label className="form-label">Body Message</label>
-                    <textarea rows={6} className="form-input" value={emailData.body} onChange={e => { setEmailEdited(true); setEmailData(d => ({ ...d, body: e.target.value })); }} />
+                  <div className="flex flex-col">
+                    <label className="form-label mb-2 text-gray-700 font-medium">Body Message</label>
+                    <textarea 
+                      rows={12} 
+                      className="form-input min-h-[250px] p-4 text-gray-800 leading-relaxed shadow-inner bg-gray-50/50 focus:bg-white transition-all duration-200 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl resize-y" 
+                      value={emailData.body} 
+                      onChange={e => { setEmailEdited(true); setEmailData(d => ({ ...d, body: e.target.value })); }} 
+                      placeholder="Type your email message here..."
+                    />
                   </div>
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
                     <label className="flex items-center gap-3 cursor-pointer">
