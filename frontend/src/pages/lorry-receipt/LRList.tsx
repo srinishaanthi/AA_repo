@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../../lib/api';
-import { LorryReceipt, NavState } from '../../types';
+import { LorryReceipt, NavState, CompanySettings } from '../../types';
 import { Plus, Search, Filter, Eye, Pencil, Printer, Trash2, FileText, ChevronLeft, ChevronRight, Download, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import LRPdfPreview from './LRPdfPreview';
+import html2pdf from 'html2pdf.js';
 
 const PAGE_SIZE = 10;
 
@@ -24,7 +26,46 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [company, setCompany] = useState<CompanySettings | null>(null);
+  const [downloadingLR, setDownloadingLR] = useState<LorryReceipt | null>(null);
+  const [printingLR, setPrintingLR] = useState<LorryReceipt | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api.from('company_settings').select('*').maybeSingle().then(res => {
+      setCompany(res.data);
+    });
+  }, []);
+
+  const downloadPDFDirect = (lr: LorryReceipt) => {
+    setDownloadingLR(lr);
+    setTimeout(() => {
+      const element = document.getElementById('lr-list-download-preview');
+      if (!element) return;
+      
+      const opt = {
+        margin:       0,
+        filename:     `LR_${lr.lr_number || 'New'}.pdf`,
+        image:        { type: 'jpeg', quality: 1 },
+        html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        setDownloadingLR(null);
+      });
+    }, 300);
+  };
+
+  const printPDFDirect = (lr: LorryReceipt) => {
+    setPrintingLR(lr);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setPrintingLR(null);
+      }, 1000);
+    }, 300);
+  };
 
   async function updateStatus(id: string, newStatus: string) {
     const lrToUpdate = lrs.find(lr => lr.id === id);
@@ -259,7 +300,7 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
                 <th className="table-th">From → To</th>
                 <th className="table-th">Total</th>
                 <th className="table-th">Status</th>
-                <th className="table-th">Actions</th>
+                <th className="table-th w-36">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -316,8 +357,8 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
                         <option value="cancelled">cancelled</option>
                       </select>
                     </td>
-                    <td className="table-td">
-                      <div className="flex items-center gap-1">
+                    <td className="table-td whitespace-nowrap w-36">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => onNav({ page: 'lr-edit', id: lr.id })}
                           className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-brand transition-colors"
@@ -326,11 +367,18 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
                           <Eye size={15} />
                         </button>
                         <button
-                          onClick={() => onNav({ page: 'lr-edit', id: lr.id })}
+                          onClick={() => printPDFDirect(lr)}
                           className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-brand transition-colors"
                           title="Print"
                         >
                           <Printer size={15} />
+                        </button>
+                        <button
+                          onClick={() => downloadPDFDirect(lr)}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-brand transition-colors"
+                          title="Download PDF"
+                        >
+                          <Download size={15} />
                         </button>
                         <button
                           onClick={() => deleteLR(lr.id)}
@@ -383,6 +431,44 @@ export default function LRList({ onNav }: { onNav: (s: NavState) => void }) {
           </div>
         )}
       </div>
+
+      {/* Hidden PDF container for direct downloads */}
+      {downloadingLR && (
+        <div className="fixed -left-[9999px] -top-[9999px]">
+          <div id="lr-list-download-preview" className="print-area bg-white w-[794px]">
+            <LRPdfPreview lr={downloadingLR} company={company} />
+          </div>
+        </div>
+      )}
+
+      {/* Hidden print container for direct printing */}
+      {printingLR && (
+        <div className="print-only-container print-area">
+          <style>{`
+            @media screen {
+              .print-only-container {
+                display: none !important;
+              }
+            }
+            @media print {
+              .print-only-container {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 794px;
+                visibility: visible !important;
+              }
+              .print-only-container * {
+                visibility: visible !important;
+              }
+            }
+          `}</style>
+          <div className="bg-white w-[794px]">
+            <LRPdfPreview lr={printingLR} company={company} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

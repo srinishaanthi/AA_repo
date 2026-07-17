@@ -35,12 +35,12 @@ export default function LRPdfPreview({ lr, company }: Props) {
             body { background: white; }
         }
       `}</style>
-      <div className="max-w-5xl mx-auto bg-[#ffffff] rounded-xl shadow-lg overflow-hidden border border-[#c3c5d9]">
+      <div className="max-w-5xl mx-auto bg-[#ffffff] shadow-lg overflow-hidden border border-[#c3c5d9]">
         {/* Receipt Header */}
         <div className="relative bg-[#003ec7] overflow-hidden p-3">
           <div className="relative z-10 flex flex-row justify-between items-center gap-3">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-1 shrink-0 mt-0.5">
+              <div className="w-12 h-12 bg-white flex items-center justify-center p-1 shrink-0 mt-0.5 border border-[#c3c5d9]">
                 {company?.logo_url ? (
                   <img alt="Logo" className="w-full h-full object-contain" src={company.logo_url} />
                 ) : (
@@ -68,7 +68,7 @@ export default function LRPdfPreview({ lr, company }: Props) {
                 </div>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-lg border border-white/20 flex items-center justify-center text-center">
+            <div className="bg-white/10 backdrop-blur-md px-6 py-4 border border-white/20 flex items-center justify-center text-center">
               <h2 className="text-[13px] font-bold text-white tracking-widest uppercase leading-tight">LORRY<br />RECEIPT</h2>
             </div>
           </div>
@@ -76,56 +76,68 @@ export default function LRPdfPreview({ lr, company }: Props) {
 
         {/* Info Banner */}
         <div className="grid grid-cols-4 gap-3 p-3 bg-[#f2f4f6] border-b border-[#c3c5d9]">
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">tag</span> LR NO.
-            </p>
-            <p className="text-[11px] font-semibold text-[#003ec7]">{lr.lr_number || '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">tag</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">LR NO.</p>
+              <p className="text-[11px] font-semibold text-[#003ec7]">{lr.lr_number || '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">calendar_today</span> DATE
-            </p>
-            <p className="text-[11px] font-semibold">{lr.date ? new Date(lr.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">calendar_today</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">DATE</p>
+              <p className="text-[11px] font-semibold">{lr.date ? new Date(lr.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">local_shipping</span> VEHICLE NO.
-            </p>
-            <p className="text-[11px] font-semibold">{lr.vehicle_number || '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">local_shipping</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">VEHICLE NO.</p>
+              <p className="text-[11px] font-semibold">{lr.vehicle_number || '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">location_on</span> DELIVERY AT
-            </p>
-            <p className="text-[11px] font-semibold">
-              {lr.delivery_at || '—'}
-            </p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">location_on</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">DELIVERY AT</p>
+              <p className="text-[11px] font-semibold">{lr.delivery_at || '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">person</span> DRIVER NAME
-            </p>
-            <p className="text-[11px] font-bold">{lr.driver_name || '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">person</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">DRIVER NAME</p>
+              <p className="text-[11px] font-bold">{lr.driver_name || '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">call</span> DRIVER MOBILE
-            </p>
-            <p className="text-[11px] font-bold">{lr.driver_phone || '—'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">call</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">DRIVER MOBILE</p>
+              <p className="text-[11px] font-bold">{lr.driver_phone || '—'}</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-[#434656] text-[9px] font-semibold tracking-wider flex items-center gap-2">
-              <span className="material-symbols-outlined text-[10px]">receipt_long</span> E-WAY BILL NO.
-            </p>
-            <p className="text-[11px] font-bold">{lr.eway_bill_no || 'Not Provided'}</p>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">receipt_long</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">E-WAY BILL NO.</p>
+              <p className="text-[11px] font-bold">{lr.eway_bill_no || 'Not Provided'}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-[11px] text-[#434656] mt-[1.5px]">domain</span>
+            <div className="space-y-0.5">
+              <p className="text-[#434656] text-[9px] font-semibold tracking-wider">BRANCH</p>
+              <p className="text-[11px] font-bold">{lr.branch || '—'}</p>
+            </div>
           </div>
         </div>
 
         {/* Bento Grid Sections */}
         <div className="p-3 grid grid-cols-2 gap-3">
           {/* Consignor Card */}
-          <div className="border border-[#e5e7eb] rounded-lg overflow-hidden bg-white">
+          <div className="border border-[#e5e7eb] overflow-hidden bg-white">
             <div className="bg-[#f4f6fb] px-3 py-1.5 border-b border-[#e5e7eb]">
               <h3 className="text-[9px] font-semibold tracking-wider text-[#3b82f6] uppercase">Consignor (From)</h3>
             </div>
@@ -144,7 +156,7 @@ export default function LRPdfPreview({ lr, company }: Props) {
                   <p className="text-[10px] text-[#374151]">{lr.consignor_phone}</p>
                 </div>
               )}
-              <div className="bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+              <div className="bg-[#f9fafb] p-2 border border-[#e5e7eb] border-dashed">
                 <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">GSTIN</p>
                 <p className="text-[10px] font-bold text-[#3b82f6]">{lr.consignor_gstin || '—'}</p>
               </div>
@@ -152,7 +164,7 @@ export default function LRPdfPreview({ lr, company }: Props) {
           </div>
 
           {/* Consignee Card */}
-          <div className="border border-[#e5e7eb] rounded-lg overflow-hidden bg-white">
+          <div className="border border-[#e5e7eb] overflow-hidden bg-white">
             <div className="bg-[#ebf5e6] px-3 py-1.5 border-b border-[#e5e7eb]">
               <h3 className="text-[9px] font-semibold tracking-wider text-[#16a34a] uppercase">Consignee (To)</h3>
             </div>
@@ -171,7 +183,7 @@ export default function LRPdfPreview({ lr, company }: Props) {
                   <p className="text-[10px] text-[#374151]">{lr.consignee_phone}</p>
                 </div>
               )}
-              <div className="bg-[#f9fafb] p-2 rounded border border-[#e5e7eb] border-dashed">
+              <div className="bg-[#f9fafb] p-2 border border-[#e5e7eb] border-dashed">
                 <p className="text-[#6b7280] text-[8px] font-medium tracking-wider mb-0.5 uppercase">GSTIN</p>
                 <p className="text-[10px] font-bold text-[#16a34a]">{lr.consignee_gstin || '—'}</p>
               </div>
@@ -180,7 +192,7 @@ export default function LRPdfPreview({ lr, company }: Props) {
         </div>
 
         {/* Goods Detail Table */}
-        <div className="mx-2 mb-2 border border-[#c3c5d9] rounded-lg overflow-hidden">
+        <div className="mx-2 mb-2 border border-[#c3c5d9] overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead className="bg-[#e6e8ea] border-b border-[#c3c5d9]">
               <tr>
@@ -211,7 +223,7 @@ export default function LRPdfPreview({ lr, company }: Props) {
         <div className="grid grid-cols-3 gap-3 p-3 bg-[#f2f4f6] border-t border-[#c3c5d9]">
           {/* Route & Declaration */}
           <div className="col-span-2 flex flex-col justify-between p-2 gap-3">
-            <div className="flex items-center gap-6 bg-white p-3 rounded-xl border border-[#c3c5d9]">
+            <div className="flex items-center gap-6 bg-white p-3 border border-[#c3c5d9]">
               <div className="flex-1">
                 <p className="text-[9px] font-semibold tracking-wider text-[#434656] uppercase tracking-widest mb-1">From</p>
                 <p className="text-[16px] font-bold text-[#003ec7]">{lr.from_location || '—'}</p>
@@ -226,12 +238,12 @@ export default function LRPdfPreview({ lr, company }: Props) {
             </div>
 
             {/* Payment Terms */}
-            <div className="bg-white p-3 rounded-xl border border-[#c3c5d9]">
+            <div className="bg-white p-3 border border-[#c3c5d9]">
               <p className="text-[9px] font-semibold tracking-wider text-[#434656] uppercase tracking-widest mb-2">Payment Terms</p>
               <div className="flex justify-start gap-8">
-                <label className="flex items-center gap-2 text-[11px] font-bold text-[#434656]"><input className="rounded border-[#c3c5d9]" type="checkbox" checked={lr.payment_terms === 'Paid'} readOnly /> PAID</label>
-                <label className="flex items-center gap-2 text-[11px] font-bold text-[#434656]"><input className="rounded border-[#c3c5d9]" type="checkbox" checked={lr.payment_terms === 'To Pay'} readOnly /> TO PAY</label>
-                <label className="flex items-center gap-2 text-[11px] font-bold text-[#434656]"><input className="rounded border-[#c3c5d9]" type="checkbox" checked={lr.payment_terms === 'TBB'} readOnly /> TBB</label>
+                <label className="flex items-center gap-2 text-[11px] font-bold text-[#434656]"><input className="border-[#c3c5d9]" type="checkbox" checked={lr.payment_terms === 'Paid'} readOnly /> PAID</label>
+                <label className="flex items-center gap-2 text-[11px] font-bold text-[#434656]"><input className="border-[#c3c5d9]" type="checkbox" checked={lr.payment_terms === 'To Pay'} readOnly /> TO PAY</label>
+                <label className="flex items-center gap-2 text-[11px] font-bold text-[#434656]"><input className="border-[#c3c5d9]" type="checkbox" checked={lr.payment_terms === 'TBB'} readOnly /> TBB</label>
               </div>
             </div>
 
@@ -242,7 +254,7 @@ export default function LRPdfPreview({ lr, company }: Props) {
           </div>
 
           {/* Freight Calculation Summary */}
-          <div className="bg-[#003ec7] text-white p-3 rounded-xl space-y-3 shadow-xl">
+          <div className="bg-[#003ec7] text-white p-3 space-y-3 shadow-xl">
             <h3 className="text-[9px] font-semibold tracking-wider uppercase tracking-widest border-b border-white/20 pb-2">Freight Summary</h3>
             <div className="space-y-1.5">
               <div className="flex justify-between text-[9px] font-semibold tracking-wider"><span className="">Freight</span><span className="">{lr.freight_charge ? formatCurrency(lr.freight_charge) : 'Rs. —'}</span></div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api, getNextNumber } from '../../lib/api';
 import { LorryReceipt, Customer, Vehicle, Driver, CompanySettings, GoodsLine, NavState } from '../../types';
 import LRPdfPreview from './LRPdfPreview';
@@ -6,6 +6,7 @@ import html2pdf from 'html2pdf.js';
 import {
   Save, Printer, ChevronDown, ChevronUp, Plus, Trash2, ArrowLeft, Eye, FileText, Download
 } from 'lucide-react';
+import { City, State } from 'country-state-city';
 
 const emptyGoods = (): GoodsLine => ({
   description: '', packages: '', actual_weight: '', charged_weight: '',
@@ -16,6 +17,8 @@ interface Props {
   editId?: string;
   fromQuotationId?: string;
   onNav: (s: NavState) => void;
+  autoPreview?: boolean;
+  autoPrint?: boolean;
 }
 
 interface Section {
@@ -31,7 +34,172 @@ const sections: Section[] = [
   { key: 'charges', label: 'Charges' },
 ];
 
-export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
+const INDIAN_CITIES = Array.from(
+  new Set(City.getCitiesOfCountry('IN').map(c => c.name))
+).sort();
+
+interface SearchableDropdownProps<T> {
+  label: string;
+  options: T[];
+  selectedValue: string;
+  placeholder: string;
+  onSelect: (value: string) => void;
+  getOptionId: (option: T) => string;
+  getOptionLabel: (option: T) => string;
+  addNewLabel: string;
+  onAddNew: () => void;
+  renderHoverInfo: (option: T) => React.ReactNode;
+  tooltipAlign?: 'left' | 'right';
+}
+
+function SearchableDropdown<T>({
+  label,
+  options,
+  selectedValue,
+  placeholder,
+  onSelect,
+  getOptionId,
+  getOptionLabel,
+  addNewLabel,
+  onAddNew,
+  renderHoverInfo,
+  tooltipAlign = 'right',
+}: SearchableDropdownProps<T>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [hoveredOption, setHoveredOption] = useState<T | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) setSearchQuery('');
+  }, [isOpen]);
+
+  const selectedOption = options.find(opt => getOptionId(opt) === selectedValue);
+  const selectedLabel = selectedOption ? getOptionLabel(selectedOption) : '';
+
+  const filteredOptions = options.filter(opt =>
+    getOptionLabel(opt).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="relative" ref={ref}>
+      <label className="form-label">{label}</label>
+      <div
+        className="form-input flex items-center justify-between cursor-pointer pr-10 relative bg-white min-h-[38px] py-1.5 group/trigger"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className={selectedLabel ? 'text-gray-900 font-medium text-sm' : 'text-gray-400 text-sm'}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown size={16} className="text-gray-400" />
+
+        {/* Floating details on hovering the selected option box (only if dropdown is closed) */}
+        {!isOpen && selectedOption && (
+          <div
+            className={`absolute top-0 w-64 bg-white text-gray-900 text-xs rounded-lg shadow-xl border border-gray-200 p-3 opacity-0 pointer-events-none group-hover/trigger:opacity-100 transition-opacity duration-150 z-[110] text-left normal-case tracking-normal ${
+              tooltipAlign === 'left' ? 'right-full mr-2' : 'left-full ml-2'
+            }`}
+          >
+            <div
+              className={`absolute top-4 border-4 border-transparent ${
+                tooltipAlign === 'left' ? 'left-full border-l-white' : 'right-full border-r-white'
+              }`}
+            ></div>
+            {renderHoverInfo(selectedOption)}
+          </div>
+        )}
+      </div>
+
+      {/* Floating Preview Card on Option Hover (when dropdown is open) */}
+      {isOpen && hoveredOption && (
+        <div
+          className={`absolute top-12 w-64 bg-white text-gray-900 text-xs rounded-lg shadow-xl border border-gray-200 p-3 z-[110] text-left normal-case tracking-normal ${
+            tooltipAlign === 'left' ? 'right-full mr-2' : 'left-full ml-2'
+          }`}
+        >
+          <div
+            className={`absolute top-4 border-4 border-transparent ${
+              tooltipAlign === 'left' ? 'left-full border-l-white' : 'right-full border-r-white'
+            }`}
+          ></div>
+          {renderHoverInfo(hoveredOption)}
+        </div>
+      )}
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-[95] flex flex-col max-h-60 overflow-hidden">
+          <div className="p-2 border-b border-gray-100 flex items-center gap-2 bg-gray-50">
+            <span className="material-symbols-outlined text-[16px] text-gray-400">search</span>
+            <input
+              type="text"
+              className="w-full bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+          <div className="overflow-y-auto flex-1 max-h-48 divide-y divide-gray-50">
+            <button
+              type="button"
+              className="w-full px-3 py-2 text-left text-xs font-semibold text-brand hover:bg-brand/5 transition-colors block"
+              onClick={() => {
+                onAddNew();
+                setIsOpen(false);
+              }}
+            >
+              {addNewLabel}
+            </button>
+            {filteredOptions.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-gray-400 italic">No matches found</div>
+            ) : (
+              filteredOptions.map(opt => (
+                <div
+                  key={getOptionId(opt)}
+                  className="w-full"
+                  onMouseEnter={() => setHoveredOption(opt)}
+                  onMouseLeave={() => setHoveredOption(null)}
+                >
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    onClick={() => {
+                      onSelect(getOptionId(opt));
+                      setIsOpen(false);
+                    }}
+                  >
+                    <span>{getOptionLabel(opt)}</span>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function LRForm({ editId, fromQuotationId, onNav, autoPreview, autoPrint }: Props) {
   const [form, setForm] = useState<Partial<LorryReceipt>>({
     date: new Date().toISOString().split('T')[0],
     freight_status: 'To Pay',
@@ -53,8 +221,9 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
     basic: true, parties: true, transport: true,
     goods: true, charges: true,
   });
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(autoPreview || autoPrint || false);
   const [saved, setSaved] = useState(false);
+  const autoPrintRef = useRef(false);
 
   const emptyCustomer: Partial<Customer> = { name: '', gstin: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', contact_person: '', credit_days: 0, notes: '' };
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -78,6 +247,16 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
     else if (fromQuotationId) loadQuotation(fromQuotationId);
     else generateLRNumber();
   }, [editId, fromQuotationId]);
+
+  useEffect(() => {
+    if (autoPrint && form.lr_number && !autoPrintRef.current && showPreview) {
+      autoPrintRef.current = true;
+      const timer = setTimeout(() => {
+        window.print();
+      }, 1000); // 1000ms delay to make sure styles/logos have fully drawn
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrint, form.lr_number, showPreview]);
 
   async function loadQuotation(id: string) {
     const { data } = await api.from('quotations').select('*').eq('id', id).maybeSingle();
@@ -139,8 +318,8 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
     }
     const c = customers.find(x => x.id === value);
     if (!c) {
-       setForm(f => ({ ...f, consignor_id: '' }));
-       return;
+      setForm(f => ({ ...f, consignor_id: '' }));
+      return;
     }
     setForm(f => ({
       ...f,
@@ -161,8 +340,8 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
     }
     const c = customers.find(x => x.id === value);
     if (!c) {
-       setForm(f => ({ ...f, consignee_id: '' }));
-       return;
+      setForm(f => ({ ...f, consignee_id: '' }));
+      return;
     }
     setForm(f => ({
       ...f,
@@ -287,12 +466,12 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
     setSavingCustomer(true);
     let data, error;
     if (newCustomer.id) {
-       ({ data, error } = await api.from('customers').update(newCustomer).eq('id', newCustomer.id));
+      ({ data, error } = await api.from('customers').update(newCustomer).eq('id', newCustomer.id));
     } else {
-       ({ data, error } = await api.from('customers').insert(newCustomer));
+      ({ data, error } = await api.from('customers').insert(newCustomer));
     }
     setSavingCustomer(false);
-    
+
     if (!error && data) {
       if (newCustomer.id) {
         setCustomers(prev => prev.map(c => c.id === data.id ? data : c));
@@ -300,26 +479,26 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
         setCustomers(prev => [...prev, data]);
       }
       setShowCustomerModal(false);
-      
+
       // Auto-select the newly created/updated customer
       if (modalType === 'consignor') {
-         setForm(f => ({
-           ...f,
-           consignor_id: data.id,
-           consignor_name: data.name,
-           consignor_address: [data.address, data.city, data.state, data.pincode].filter(Boolean).join(', '),
-           consignor_gstin: data.gstin || '',
-           consignor_phone: data.phone || '',
-         }));
+        setForm(f => ({
+          ...f,
+          consignor_id: data.id,
+          consignor_name: data.name,
+          consignor_address: [data.address, data.city, data.state, data.pincode].filter(Boolean).join(', '),
+          consignor_gstin: data.gstin || '',
+          consignor_phone: data.phone || '',
+        }));
       } else if (modalType === 'consignee') {
-         setForm(f => ({
-           ...f,
-           consignee_id: data.id,
-           consignee_name: data.name,
-           consignee_address: [data.address, data.city, data.state, data.pincode].filter(Boolean).join(', '),
-           consignee_gstin: data.gstin || '',
-           consignee_phone: data.phone || '',
-         }));
+        setForm(f => ({
+          ...f,
+          consignee_id: data.id,
+          consignee_name: data.name,
+          consignee_address: [data.address, data.city, data.state, data.pincode].filter(Boolean).join(', '),
+          consignee_gstin: data.gstin || '',
+          consignee_phone: data.phone || '',
+        }));
       }
     } else {
       alert('Save failed: ' + error?.message);
@@ -331,12 +510,12 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
     setSavingVehicle(true);
     let data, error;
     if (newVehicle.id) {
-       ({ data, error } = await api.from('vehicles').update(newVehicle).eq('id', newVehicle.id));
+      ({ data, error } = await api.from('vehicles').update(newVehicle).eq('id', newVehicle.id));
     } else {
-       ({ data, error } = await api.from('vehicles').insert(newVehicle));
+      ({ data, error } = await api.from('vehicles').insert(newVehicle));
     }
     setSavingVehicle(false);
-    
+
     if (!error && data) {
       if (newVehicle.id) {
         setVehicles(prev => prev.map(v => v.id === data.id ? data : v));
@@ -355,12 +534,12 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
     setSavingDriver(true);
     let data, error;
     if (newDriver.id) {
-       ({ data, error } = await api.from('drivers').update(newDriver).eq('id', newDriver.id));
+      ({ data, error } = await api.from('drivers').update(newDriver).eq('id', newDriver.id));
     } else {
-       ({ data, error } = await api.from('drivers').insert(newDriver));
+      ({ data, error } = await api.from('drivers').insert(newDriver));
     }
     setSavingDriver(false);
-    
+
     if (!error && data) {
       if (newDriver.id) {
         setDrivers(prev => prev.map(d => d.id === data.id ? data : d));
@@ -381,13 +560,13 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
   const downloadPDF = () => {
     const element = document.getElementById('lr-pdf-preview-container') || document.getElementById('lr-pdf-preview-container-hidden');
     if (!element) return;
-    
+
     const opt = {
-      margin:       0,
-      filename:     `LR_${form.lr_number || 'New'}.pdf`,
-      image:        { type: 'jpeg', quality: 1 },
-      html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      margin: 0,
+      filename: `LR_${form.lr_number || 'New'}.pdf`,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 2, useCORS: true, windowWidth: 794 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
     };
 
     html2pdf().set(opt).from(element).save();
@@ -441,343 +620,449 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
       <div className={`flex-1 flex overflow-hidden`}>
         {/* Form Panel */}
         {!showPreview && (
-        <div className="w-full overflow-y-auto bg-[#F5F7FA]">
-          <div className="p-5 max-w-5xl mx-auto space-y-3">
-            {sections.map(s => (
-              <div key={s.key} className="card overflow-hidden">
-                <button
-                  onClick={() => toggleSection(s.key)}
-                  className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <span className="font-semibold text-gray-800 text-sm">{s.label}</span>
-                  {expanded[s.key] ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-                </button>
+          <div className="w-full overflow-y-auto bg-[#F5F7FA]">
+            <div className="p-5 max-w-5xl mx-auto space-y-3">
+              {sections.map(s => (
+                <div key={s.key} className="card overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(s.key)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="font-semibold text-gray-800 text-sm">{s.label}</span>
+                    {expanded[s.key] ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                  </button>
 
-                {expanded[s.key] && (
-                  <div className="px-5 pb-5 border-t border-gray-100">
-                    {/* BASIC */}
-                    {s.key === 'basic' && (
-                      <div className="grid grid-cols-3 gap-4 mt-4">
-                        <div>
-                          <label className={labelClass}>LR Number</label>
-                          <input className={inputClass} value={form.lr_number || ''} onChange={e => setField('lr_number', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Date</label>
-                          <input type="date" className={inputClass} value={form.date || ''} onChange={e => setField('date', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Branch</label>
-                          <input className={inputClass} placeholder="e.g. Coimbatore" value={form.branch || ''} onChange={e => setField('branch', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>From Location (Origin)</label>
-                          <input className={inputClass} placeholder="e.g. Coimbatore" value={form.from_location || ''} onChange={e => setField('from_location', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>To Location</label>
-                          <input className={inputClass} placeholder="e.g. Chennai" value={form.to_location || ''} onChange={e => setField('to_location', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Delivery At</label>
-                          <input className={inputClass} placeholder="e.g. Pune" value={form.delivery_at || ''} onChange={e => setField('delivery_at', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>E-Way Bill No.</label>
-                          <input className={inputClass} placeholder="Enter e-way bill" value={form.eway_bill_no || ''} onChange={e => setField('eway_bill_no', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Payment Terms</label>
-                          <select className={inputClass} value={form.payment_terms || ''} onChange={e => setField('payment_terms', e.target.value)}>
-                            <option>To Pay</option>
-                            <option>Paid</option>
-                            <option>TBB</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PARTIES (CONSIGNOR & CONSIGNEE) */}
-                    {s.key === 'parties' && (
-                      <div className="grid grid-cols-2 gap-8 mt-4">
-                        {/* CONSIGNOR */}
-                        <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                            <h3 className="font-semibold text-gray-800">Consignor (From)</h3>
-                            {form.consignor_id && (
-                              <button onClick={() => editSelectedCustomer('consignor')} className="text-xs text-brand hover:underline font-medium">
-                                Edit Details
-                              </button>
-                            )}
+                  {expanded[s.key] && (
+                    <div className="px-5 pb-5 border-t border-gray-100">
+                      {/* BASIC */}
+                      {s.key === 'basic' && (
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                          <div>
+                            <label className={labelClass}>LR Number</label>
+                            <input className={inputClass} value={form.lr_number || ''} onChange={e => setField('lr_number', e.target.value)} />
                           </div>
                           <div>
-                            <label className={labelClass}>Select Customer</label>
-                            <select className={inputClass} onChange={e => selectConsignor(e.target.value)} value={form.consignor_id || ''}>
-                              <option value="">— Select —</option>
-                              <option value="NEW" className="font-semibold text-brand">+ Add New Customer</option>
-                              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                          </div>
-                          
-                          {form.consignor_id && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
-                              <div className="font-semibold text-gray-900">{form.consignor_name}</div>
-                              {form.consignor_gstin && <div className="text-gray-500 mt-1"><span className="text-gray-400">GSTIN:</span> {form.consignor_gstin}</div>}
-                              {form.consignor_phone && <div className="text-gray-500"><span className="text-gray-400">Phone:</span> {form.consignor_phone}</div>}
-                              {form.consignor_address && <div className="text-gray-500 mt-1"><span className="text-gray-400">Address:</span> {form.consignor_address}</div>}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* CONSIGNEE */}
-                        <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                            <h3 className="font-semibold text-gray-800">Consignee (To)</h3>
-                            {form.consignee_id && (
-                              <button onClick={() => editSelectedCustomer('consignee')} className="text-xs text-brand hover:underline font-medium">
-                                Edit Details
-                              </button>
-                            )}
+                            <label className={labelClass}>Date</label>
+                            <input type="date" className={inputClass} value={form.date || ''} onChange={e => setField('date', e.target.value)} />
                           </div>
                           <div>
-                            <label className={labelClass}>Select Customer</label>
-                            <select className={inputClass} onChange={e => selectConsignee(e.target.value)} value={form.consignee_id || ''}>
-                              <option value="">— Select —</option>
-                              <option value="NEW" className="font-semibold text-brand">+ Add New Customer</option>
-                              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                          </div>
-
-                          {form.consignee_id && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
-                              <div className="font-semibold text-gray-900">{form.consignee_name}</div>
-                              {form.consignee_gstin && <div className="text-gray-500 mt-1"><span className="text-gray-400">GSTIN:</span> {form.consignee_gstin}</div>}
-                              {form.consignee_phone && <div className="text-gray-500"><span className="text-gray-400">Phone:</span> {form.consignee_phone}</div>}
-                              {form.consignee_address && <div className="text-gray-500 mt-1"><span className="text-gray-400">Address:</span> {form.consignee_address}</div>}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* TRANSPORT */}
-                    {s.key === 'transport' && (
-                      <div className="grid grid-cols-2 gap-8 mt-4">
-                        {/* VEHICLE */}
-                        <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                            <h3 className="font-semibold text-gray-800">Vehicle Details</h3>
-                            {form.vehicle_id && (
-                              <button onClick={editSelectedVehicle} className="text-xs text-brand hover:underline font-medium">
-                                Edit Details
-                              </button>
-                            )}
-                          </div>
-                          <div>
-                            <label className={labelClass}>Select Vehicle</label>
-                            <select className={inputClass} onChange={e => selectVehicle(e.target.value)} value={form.vehicle_id || ''}>
-                              <option value="">— Select —</option>
-                              <option value="NEW" className="font-semibold text-brand">+ Add New Vehicle</option>
-                              {vehicles.map(v => <option key={v.id} value={v.id}>{v.vehicle_number}</option>)}
-                            </select>
-                          </div>
-                          
-                          {form.vehicle_id && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
-                              <div className="font-semibold text-gray-900 text-base">{form.vehicle_number}</div>
-                              {(() => {
-                                const v = vehicles.find(x => x.id === form.vehicle_id);
-                                if (!v) return null;
-                                return (
-                                  <>
-                                    {v.vehicle_type && <div className="text-gray-500 mt-1"><span className="text-gray-400">Type:</span> {v.vehicle_type}</div>}
-                                    {v.owner_name && <div className="text-gray-500"><span className="text-gray-400">Owner:</span> {v.owner_name}</div>}
-                                    {v.owner_phone && <div className="text-gray-500"><span className="text-gray-400">Owner Phone:</span> {v.owner_phone}</div>}
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* DRIVER */}
-                        <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                            <h3 className="font-semibold text-gray-800">Driver Details</h3>
-                            {form.driver_id && (
-                              <button onClick={editSelectedDriver} className="text-xs text-brand hover:underline font-medium">
-                                Edit Details
-                              </button>
-                            )}
-                          </div>
-                          <div>
-                            <label className={labelClass}>Select Driver</label>
-                            <select className={inputClass} onChange={e => selectDriver(e.target.value)} value={form.driver_id || ''}>
-                              <option value="">— Select —</option>
-                              <option value="NEW" className="font-semibold text-brand">+ Add New Driver</option>
-                              {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                            </select>
-                          </div>
-
-                          {form.driver_id && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
-                              <div className="font-semibold text-gray-900 text-base">{form.driver_name}</div>
-                              {form.driver_phone && <div className="text-gray-500 mt-1"><span className="text-gray-400">Phone:</span> {form.driver_phone}</div>}
-                              {(() => {
-                                const d = drivers.find(x => x.id === form.driver_id);
-                                if (d && d.license_number) {
-                                  return <div className="text-gray-500"><span className="text-gray-400">License:</span> {d.license_number}</div>;
+                            <label className={labelClass}>Branch</label>
+                            <select
+                              className={inputClass}
+                              value={
+                                ['Coimbatore', 'Chennai'].includes(form.branch || '')
+                                  ? form.branch
+                                  : form.branch
+                                    ? 'CUSTOM'
+                                    : ''
+                              }
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === 'CUSTOM') {
+                                  setField('branch', '');
+                                } else {
+                                  setField('branch', val);
                                 }
-                                return null;
-                              })()}
-                            </div>
-                          )}
+                              }}
+                            >
+                              <option value="">— Select —</option>
+                              <option value="Coimbatore">Coimbatore</option>
+                              <option value="Chennai">Chennai</option>
+                              <option value="CUSTOM">Custom Branch</option>
+                            </select>
+                            {(!['Coimbatore', 'Chennai'].includes(form.branch || '') || form.branch === '') && (
+                              <input
+                                className={`${inputClass} mt-1.5`}
+                                placeholder="Enter custom branch"
+                                value={form.branch || ''}
+                                onChange={e => setField('branch', e.target.value)}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <label className={labelClass}>From Location (Origin)</label>
+                            <input list="indian-cities" className={inputClass} placeholder="e.g. Coimbatore" value={form.from_location || ''} onChange={e => setField('from_location', e.target.value)} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>To Location</label>
+                            <input list="indian-cities" className={inputClass} placeholder="e.g. Chennai" value={form.to_location || ''} onChange={e => setField('to_location', e.target.value)} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Delivery At</label>
+                            <select
+                              className={inputClass}
+                              value={
+                                ['DD unloading by party', 'DD against consignor copy', 'DD drivers copy'].includes(form.delivery_at || '')
+                                  ? form.delivery_at
+                                  : form.delivery_at
+                                    ? 'CUSTOM'
+                                    : ''
+                              }
+                              onChange={e => {
+                                const val = e.target.value;
+                                if (val === 'CUSTOM') {
+                                  setField('delivery_at', '');
+                                } else {
+                                  setField('delivery_at', val);
+                                }
+                              }}
+                            >
+                              <option value="">— Select —</option>
+                              <option value="DD unloading by party">DD unloading by party</option>
+                              <option value="DD against consignor copy">DD against consignor copy</option>
+                              <option value="DD drivers copy">DD drivers copy</option>
+                              <option value="CUSTOM">Custom Location</option>
+                            </select>
+                            {(!['DD unloading by party', 'DD against consignor copy', 'DD drivers copy'].includes(form.delivery_at || '') || form.delivery_at === '') && (
+                              <input
+                                className={`${inputClass} mt-1.5`}
+                                placeholder="Enter custom delivery location"
+                                value={form.delivery_at || ''}
+                                onChange={e => setField('delivery_at', e.target.value)}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <label className={labelClass}>E-Way Bill No.</label>
+                            <input className={inputClass} placeholder="Enter e-way bill" value={form.eway_bill_no || ''} onChange={e => setField('eway_bill_no', e.target.value)} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Payment Terms</label>
+                            <select className={inputClass} value={form.payment_terms || ''} onChange={e => setField('payment_terms', e.target.value)}>
+                              <option>To Pay</option>
+                              <option>Paid</option>
+                              <option>TBB</option>
+                            </select>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* GOODS */}
-                    {s.key === 'goods' && (
-                      <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
-                        <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
-                          <thead>
-                            <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                              <th className="p-3 font-medium">Description</th>
-                              <th className="p-3 font-medium w-24">Packages</th>
-                              <th className="p-3 font-medium w-28">Actual Wt</th>
-                              <th className="p-3 font-medium w-28">Charged Wt</th>
-                              <th className="p-3 font-medium w-32">Invoice No</th>
-                              <th className="p-3 font-medium w-36">Invoice Date</th>
-                              <th className="p-3 font-medium w-28">Value (₹)</th>
-                              <th className="p-3 font-medium w-12"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 bg-white">
-                            {(form.goods || []).map((g, i) => (
-                              <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                <td className="p-2"><input className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="Description" value={g.description} onChange={e => updateGoods(i, 'description', e.target.value)} /></td>
-                                <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="Pkgs" value={g.packages as string} onChange={e => updateGoods(i, 'packages', e.target.value)} /></td>
-                                <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="KG" value={g.actual_weight as string} onChange={e => updateGoods(i, 'actual_weight', e.target.value)} /></td>
-                                <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="KG" value={g.charged_weight as string} onChange={e => updateGoods(i, 'charged_weight', e.target.value)} /></td>
-                                <td className="p-2"><input className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="Inv No" value={g.invoice_no} onChange={e => updateGoods(i, 'invoice_no', e.target.value)} /></td>
-                                <td className="p-2"><input type="date" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm text-gray-600 outline-none" value={g.invoice_date} onChange={e => updateGoods(i, 'invoice_date', e.target.value)} /></td>
-                                <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="₹0" value={g.value as string} onChange={e => updateGoods(i, 'value', e.target.value)} /></td>
-                                <td className="p-2 text-center">
-                                  {(form.goods || []).length > 1 ? (
-                                    <button onClick={() => removeGoods(i)} className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                                      <Trash2 size={16} />
-                                    </button>
-                                  ) : <div className="w-8"></div>}
-                                </td>
-                              </tr>
-                            ))}
-                            <tr className="bg-gray-50 border-t border-gray-200">
-                              <td colSpan={8} className="p-0">
-                                <button onClick={addGoods} className="w-full py-2.5 text-sm text-brand hover:text-brand-dark font-medium flex items-center justify-center gap-1 hover:bg-brand/5 transition-colors">
-                                  <Plus size={16} /> Add Next Row
+                      {/* PARTIES (CONSIGNOR & CONSIGNEE) */}
+                      {s.key === 'parties' && (
+                        <div className="grid grid-cols-2 gap-8 mt-4">
+                          {/* CONSIGNOR */}
+                          <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                              <h3 className="font-semibold text-gray-800">Consignor (From)</h3>
+                              {form.consignor_id && (
+                                <button onClick={() => editSelectedCustomer('consignor')} className="text-xs text-brand hover:underline font-medium">
+                                  Edit Details
                                 </button>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                              )}
+                            </div>
+                            <SearchableDropdown<Customer>
+                              label="Select Customer"
+                              options={customers}
+                              selectedValue={form.consignor_id || ''}
+                              placeholder="Select Consignor"
+                              onSelect={selectConsignor}
+                              getOptionId={c => c.id}
+                              getOptionLabel={c => c.name}
+                              addNewLabel="+ Add New Customer"
+                              onAddNew={() => selectConsignor('NEW')}
+                              renderHoverInfo={c => (
+                                <div className="space-y-1 text-gray-700">
+                                  <div className="font-bold text-gray-900 text-sm mb-1">{c.name}</div>
+                                  {c.gstin && <div><span className="text-gray-400 font-semibold">GSTIN:</span> {c.gstin}</div>}
+                                  {c.phone && <div><span className="text-gray-400 font-semibold">Phone:</span> {c.phone}</div>}
+                                  {c.address && <div className="mt-1"><span className="text-gray-400 font-semibold">Address:</span> {[c.address, c.city, c.state, c.pincode].filter(Boolean).join(', ')}</div>}
+                                </div>
+                              )}
+                            />
 
-                    {/* CHARGES */}
-                    {s.key === 'charges' && (
-                      <div className="mt-4 flex flex-col lg:flex-row gap-6">
-                        <div className="flex-1 overflow-hidden rounded-xl border border-gray-200 shadow-sm">
-                          <table className="w-full text-left border-collapse">
+                            {form.consignor_id && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
+                                <div className="font-semibold text-gray-900">{form.consignor_name}</div>
+                                {form.consignor_gstin && <div className="text-gray-500 mt-1"><span className="text-gray-400">GSTIN:</span> {form.consignor_gstin}</div>}
+                                {form.consignor_phone && <div className="text-gray-500"><span className="text-gray-400">Phone:</span> {form.consignor_phone}</div>}
+                                {form.consignor_address && <div className="text-gray-500 mt-1"><span className="text-gray-400">Address:</span> {form.consignor_address}</div>}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* CONSIGNEE */}
+                          <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                              <h3 className="font-semibold text-gray-800">Consignee (To)</h3>
+                              {form.consignee_id && (
+                                <button onClick={() => editSelectedCustomer('consignee')} className="text-xs text-brand hover:underline font-medium">
+                                  Edit Details
+                                </button>
+                              )}
+                            </div>
+                            <SearchableDropdown<Customer>
+                              label="Select Customer"
+                              options={customers}
+                              selectedValue={form.consignee_id || ''}
+                              placeholder="Select Consignee"
+                              onSelect={selectConsignee}
+                              getOptionId={c => c.id}
+                              getOptionLabel={c => c.name}
+                              addNewLabel="+ Add New Customer"
+                              onAddNew={() => selectConsignee('NEW')}
+                              tooltipAlign="left"
+                              renderHoverInfo={c => (
+                                <div className="space-y-1 text-gray-700">
+                                  <div className="font-bold text-gray-900 text-sm mb-1">{c.name}</div>
+                                  {c.gstin && <div><span className="text-gray-400 font-semibold">GSTIN:</span> {c.gstin}</div>}
+                                  {c.phone && <div><span className="text-gray-400 font-semibold">Phone:</span> {c.phone}</div>}
+                                  {c.address && <div className="mt-1"><span className="text-gray-400 font-semibold">Address:</span> {[c.address, c.city, c.state, c.pincode].filter(Boolean).join(', ')}</div>}
+                                </div>
+                              )}
+                            />
+
+                            {form.consignee_id && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
+                                <div className="font-semibold text-gray-900">{form.consignee_name}</div>
+                                {form.consignee_gstin && <div className="text-gray-500 mt-1"><span className="text-gray-400">GSTIN:</span> {form.consignee_gstin}</div>}
+                                {form.consignee_phone && <div className="text-gray-500"><span className="text-gray-400">Phone:</span> {form.consignee_phone}</div>}
+                                {form.consignee_address && <div className="text-gray-500 mt-1"><span className="text-gray-400">Address:</span> {form.consignee_address}</div>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* TRANSPORT */}
+                      {s.key === 'transport' && (
+                        <div className="grid grid-cols-2 gap-8 mt-4">
+                          {/* VEHICLE */}
+                          <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                              <h3 className="font-semibold text-gray-800">Vehicle Details</h3>
+                              {form.vehicle_id && (
+                                <button onClick={editSelectedVehicle} className="text-xs text-brand hover:underline font-medium">
+                                  Edit Details
+                                </button>
+                              )}
+                            </div>
+                            <SearchableDropdown<Vehicle>
+                              label="Select Vehicle"
+                              options={vehicles}
+                              selectedValue={form.vehicle_id || ''}
+                              placeholder="Select Vehicle"
+                              onSelect={selectVehicle}
+                              getOptionId={v => v.id}
+                              getOptionLabel={v => v.vehicle_number}
+                              addNewLabel="+ Add New Vehicle"
+                              onAddNew={() => selectVehicle('NEW')}
+                              renderHoverInfo={v => (
+                                <div className="space-y-1 text-gray-700">
+                                  <div className="font-bold text-gray-900 text-sm mb-1">{v.vehicle_number}</div>
+                                  {v.vehicle_type && <div><span className="text-gray-400 font-semibold">Type:</span> {v.vehicle_type}</div>}
+                                  {v.owner_name && <div><span className="text-gray-400 font-semibold">Owner:</span> {v.owner_name}</div>}
+                                  {v.owner_phone && <div><span className="text-gray-400 font-semibold">Owner Phone:</span> {v.owner_phone}</div>}
+                                </div>
+                              )}
+                            />
+
+                            {form.vehicle_id && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
+                                <div className="font-semibold text-gray-900 text-base">{form.vehicle_number}</div>
+                                {(() => {
+                                  const v = vehicles.find(x => x.id === form.vehicle_id);
+                                  if (!v) return null;
+                                  return (
+                                    <>
+                                      {v.vehicle_type && <div className="text-gray-500 mt-1"><span className="text-gray-400">Type:</span> {v.vehicle_type}</div>}
+                                      {v.owner_name && <div className="text-gray-500"><span className="text-gray-400">Owner:</span> {v.owner_name}</div>}
+                                      {v.owner_phone && <div className="text-gray-500"><span className="text-gray-400">Owner Phone:</span> {v.owner_phone}</div>}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* DRIVER */}
+                          <div className="space-y-3 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                              <h3 className="font-semibold text-gray-800">Driver Details</h3>
+                              {form.driver_id && (
+                                <button onClick={editSelectedDriver} className="text-xs text-brand hover:underline font-medium">
+                                  Edit Details
+                                </button>
+                              )}
+                            </div>
+                            <SearchableDropdown<Driver>
+                              label="Select Driver"
+                              options={drivers}
+                              selectedValue={form.driver_id || ''}
+                              placeholder="Select Driver"
+                              onSelect={selectDriver}
+                              getOptionId={d => d.id}
+                              getOptionLabel={d => d.name}
+                              addNewLabel="+ Add New Driver"
+                              onAddNew={() => selectDriver('NEW')}
+                              tooltipAlign="left"
+                              renderHoverInfo={d => (
+                                <div className="space-y-1 text-gray-700">
+                                  <div className="font-bold text-gray-900 text-sm mb-1">{d.name}</div>
+                                  {d.phone && <div><span className="text-gray-400 font-semibold">Phone:</span> {d.phone}</div>}
+                                  {d.license_number && <div><span className="text-gray-400 font-semibold">License:</span> {d.license_number}</div>}
+                                </div>
+                              )}
+                            />
+
+                            {form.driver_id && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
+                                <div className="font-semibold text-gray-900 text-base">{form.driver_name}</div>
+                                {form.driver_phone && <div className="text-gray-500 mt-1"><span className="text-gray-400">Phone:</span> {form.driver_phone}</div>}
+                                {(() => {
+                                  const d = drivers.find(x => x.id === form.driver_id);
+                                  if (d && d.license_number) {
+                                    return <div className="text-gray-500"><span className="text-gray-400">License:</span> {d.license_number}</div>;
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* GOODS */}
+                      {s.key === 'goods' && (
+                        <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                          <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
                             <thead>
                               <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                                <th className="p-3 font-medium">Charge Details</th>
-                                <th className="p-3 font-medium w-48 text-right">Amount (₹)</th>
+                                <th className="p-3 font-medium">Description</th>
+                                <th className="p-3 font-medium w-24">Packages</th>
+                                <th className="p-3 font-medium w-28">Actual Wt</th>
+                                <th className="p-3 font-medium w-28">Charged Wt</th>
+                                <th className="p-3 font-medium w-32">Invoice No</th>
+                                <th className="p-3 font-medium w-36">Invoice Date</th>
+                                <th className="p-3 font-medium w-28">Value (₹)</th>
+                                <th className="p-3 font-medium w-12"></th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
-                              {[
-                                { label: 'Freight Charge', field: 'freight_charge' as const },
-                                { label: 'Loading Charge', field: 'loading_charge' as const },
-                                { label: 'Unloading Charge', field: 'unloading_charge' as const },
-                                { label: 'Detention / Halting', field: 'detention_charge' as const },
-                                { label: 'Other Charges', field: 'other_charges' as const },
-                              ].map(({ label, field }) => (
-                                <tr key={field} className="hover:bg-gray-50/50 transition-colors">
-                                  <td className="p-3 text-sm text-gray-700 font-medium">{label}</td>
-                                  <td className="p-2">
-                                    <input 
-                                      type="number" 
-                                      className="w-full text-right bg-transparent border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
-                                      value={form[field] || ''} 
-                                      onChange={e => setField(field, Number(e.target.value))} 
-                                    />
+                              {(form.goods || []).map((g, i) => (
+                                <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                  <td className="p-2"><input className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="Description" value={g.description} onChange={e => updateGoods(i, 'description', e.target.value)} /></td>
+                                  <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="Pkgs" value={g.packages as string} onChange={e => updateGoods(i, 'packages', e.target.value)} /></td>
+                                  <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="KG" value={g.actual_weight as string} onChange={e => updateGoods(i, 'actual_weight', e.target.value)} /></td>
+                                  <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="KG" value={g.charged_weight as string} onChange={e => updateGoods(i, 'charged_weight', e.target.value)} /></td>
+                                  <td className="p-2"><input className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="Inv No" value={g.invoice_no} onChange={e => updateGoods(i, 'invoice_no', e.target.value)} /></td>
+                                  <td className="p-2"><input type="date" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm text-gray-600 outline-none" value={g.invoice_date} onChange={e => updateGoods(i, 'invoice_date', e.target.value)} /></td>
+                                  <td className="p-2"><input type="number" className="w-full bg-transparent border-0 focus:ring-1 focus:ring-brand rounded px-2 py-1.5 text-sm outline-none" placeholder="₹0" value={g.value as string} onChange={e => updateGoods(i, 'value', e.target.value)} /></td>
+                                  <td className="p-2 text-center">
+                                    {(form.goods || []).length > 1 ? (
+                                      <button onClick={() => removeGoods(i)} className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                                        <Trash2 size={16} />
+                                      </button>
+                                    ) : <div className="w-8"></div>}
                                   </td>
                                 </tr>
                               ))}
                               <tr className="bg-gray-50 border-t border-gray-200">
-                                <td className="p-3 text-sm text-gray-700 font-medium">GST Type</td>
-                                <td className="p-2">
-                                  <select 
-                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
-                                    value={form.party_code || (isIntraState ? 'cgst_sgst' : 'igst')} 
-                                    onChange={e => setField('party_code', e.target.value)}
-                                  >
-                                    <option value="cgst_sgst">CGST + SGST</option>
-                                    <option value="igst">IGST</option>
-                                  </select>
-                                </td>
-                              </tr>
-                              <tr className="bg-gray-50">
-                                <td className="p-3 text-sm text-gray-700 font-medium">GST Rate (%)</td>
-                                <td className="p-2">
-                                  <select 
-                                    className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow" 
-                                    value={form.gst_rate || 0} 
-                                    onChange={e => setField('gst_rate', Number(e.target.value))}
-                                  >
-                                    {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
-                                  </select>
+                                <td colSpan={8} className="p-0">
+                                  <button onClick={addGoods} className="w-full py-2.5 text-sm text-brand hover:text-brand-dark font-medium flex items-center justify-center gap-1 hover:bg-brand/5 transition-colors">
+                                    <Plus size={16} /> Add Next Row
+                                  </button>
                                 </td>
                               </tr>
                             </tbody>
                           </table>
                         </div>
-                        
-                        <div className="lg:w-80 shrink-0">
-                          <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-2xl p-6 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
-                            <h4 className="text-slate-400 text-xs font-semibold mb-5 uppercase tracking-widest flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-brand"></span>
-                              Payment Summary
-                            </h4>
-                            <div className="space-y-3.5">
-                              <div className="flex justify-between text-sm items-center"><span className="text-slate-300">Sub Total</span><span className="font-medium text-base">₹{subTotal.toLocaleString('en-IN')}</span></div>
-                              {gstAmt > 0 && (
-                                isIntraState ? (
-                                  <>
-                                    <div className="flex justify-between text-sm"><span className="text-slate-400">CGST ({(form.gst_rate || 0) / 2}%)</span><span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span></div>
-                                    <div className="flex justify-between text-sm"><span className="text-slate-400">SGST ({(form.gst_rate || 0) / 2}%)</span><span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span></div>
-                                  </>
-                                ) : (
-                                  <div className="flex justify-between text-sm"><span className="text-slate-400">IGST ({form.gst_rate}%)</span><span>₹{gstAmt.toLocaleString('en-IN')}</span></div>
-                                )
-                              )}
-                              <div className="flex justify-between font-bold text-2xl pt-4 border-t border-slate-700/60 mt-2 text-white items-end">
-                                <span className="text-sm font-medium text-slate-300 mb-1">Total</span>
-                                <span className="text-emerald-400">₹{total.toLocaleString('en-IN')}</span>
+                      )}
+
+                      {/* CHARGES */}
+                      {s.key === 'charges' && (
+                        <div className="mt-4 flex flex-col lg:flex-row gap-6">
+                          <div className="flex-1 overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                  <th className="p-3 font-medium">Charge Details</th>
+                                  <th className="p-3 font-medium w-48 text-right">Amount (₹)</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 bg-white">
+                                {[
+                                  { label: 'Freight Charge', field: 'freight_charge' as const },
+                                  { label: 'Loading Charge', field: 'loading_charge' as const },
+                                  { label: 'Unloading Charge', field: 'unloading_charge' as const },
+                                  { label: 'Detention / Halting', field: 'detention_charge' as const },
+                                  { label: 'Other Charges', field: 'other_charges' as const },
+                                ].map(({ label, field }) => (
+                                  <tr key={field} className="hover:bg-gray-50/50 transition-colors">
+                                    <td className="p-3 text-sm text-gray-700 font-medium">{label}</td>
+                                    <td className="p-2">
+                                      <input
+                                        type="number"
+                                        className="w-full text-right bg-transparent border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow"
+                                        value={form[field] || ''}
+                                        onChange={e => setField(field, Number(e.target.value))}
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr className="bg-gray-50 border-t border-gray-200">
+                                  <td className="p-3 text-sm text-gray-700 font-medium">GST Type</td>
+                                  <td className="p-2">
+                                    <select
+                                      className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow"
+                                      value={form.party_code || (isIntraState ? 'cgst_sgst' : 'igst')}
+                                      onChange={e => setField('party_code', e.target.value)}
+                                    >
+                                      <option value="cgst_sgst">CGST + SGST</option>
+                                      <option value="igst">IGST</option>
+                                    </select>
+                                  </td>
+                                </tr>
+                                <tr className="bg-gray-50">
+                                  <td className="p-3 text-sm text-gray-700 font-medium">GST Rate (%)</td>
+                                  <td className="p-2">
+                                    <select
+                                      className="w-full text-right bg-white border border-gray-200 focus:border-brand focus:ring-1 focus:ring-brand rounded-md px-2 py-1.5 text-sm outline-none transition-shadow"
+                                      value={form.gst_rate || 0}
+                                      onChange={e => setField('gst_rate', Number(e.target.value))}
+                                    >
+                                      {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
+                                    </select>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="lg:w-80 shrink-0">
+                            <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-2xl p-6 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                              <h4 className="text-slate-400 text-xs font-semibold mb-5 uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-brand"></span>
+                                Payment Summary
+                              </h4>
+                              <div className="space-y-3.5">
+                                <div className="flex justify-between text-sm items-center"><span className="text-slate-300">Sub Total</span><span className="font-medium text-base">₹{subTotal.toLocaleString('en-IN')}</span></div>
+                                {gstAmt > 0 && (
+                                  isIntraState ? (
+                                    <>
+                                      <div className="flex justify-between text-sm"><span className="text-slate-400">CGST ({(form.gst_rate || 0) / 2}%)</span><span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span></div>
+                                      <div className="flex justify-between text-sm"><span className="text-slate-400">SGST ({(form.gst_rate || 0) / 2}%)</span><span>₹{(gstAmt / 2).toLocaleString('en-IN')}</span></div>
+                                    </>
+                                  ) : (
+                                    <div className="flex justify-between text-sm"><span className="text-slate-400">IGST ({form.gst_rate}%)</span><span>₹{gstAmt.toLocaleString('en-IN')}</span></div>
+                                  )
+                                )}
+                                <div className="flex justify-between font-bold text-2xl pt-4 border-t border-slate-700/60 mt-2 text-white items-end">
+                                  <span className="text-sm font-medium text-slate-300 mb-1">Total</span>
+                                  <span className="text-emerald-400">₹{total.toLocaleString('en-IN')}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
 
-                  </div>
-                )}
-              </div>
-            ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
         )}
 
         {/* PDF Preview Panel */}
@@ -797,8 +1082,28 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
 
       {/* Hidden PDF container for downloading when preview is closed */}
       {!showPreview && (
-        <div className="fixed -left-[9999px] -top-[9999px]">
-          <div id="lr-pdf-preview-container-hidden" className="print-area bg-white w-[794px]">
+        <div className="print-only-container-hidden print-area">
+          <style>{`
+            @media screen {
+              .print-only-container-hidden {
+                display: none !important;
+              }
+            }
+            @media print {
+              .print-only-container-hidden {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 794px;
+                visibility: visible !important;
+              }
+              .print-only-container-hidden * {
+                visibility: visible !important;
+              }
+            }
+          `}</style>
+          <div id="lr-pdf-preview-container-hidden" className="bg-white w-[794px]">
             <LRPdfPreview lr={form} company={company} />
           </div>
         </div>
@@ -923,6 +1228,13 @@ export default function LRForm({ editId, fromQuotationId, onNav }: Props) {
           </div>
         </div>
       )}
+
+      {/* INDIAN CITIES DATALIST */}
+      <datalist id="indian-cities">
+        {INDIAN_CITIES.map(city => (
+          <option key={city} value={city} />
+        ))}
+      </datalist>
     </div>
   );
 }

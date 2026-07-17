@@ -252,4 +252,6 @@ export interface NavState {
   page: Page;
   id?: string;
   fromQuotationId?: string;
+  autoPreview?: boolean;
+  autoPrint?: boolean;
 }

@@ -29,7 +29,7 @@ export default function App() {
       case 'dashboard': return <Dashboard onNav={onNav} />;
       case 'lr-list': return <LRList onNav={onNav} />;
       case 'lr-create': return <LRForm onNav={onNav} fromQuotationId={nav.fromQuotationId} />;
-      case 'lr-edit': return <LRForm editId={nav.id} onNav={onNav} />;
+      case 'lr-edit': return <LRForm editId={nav.id} autoPreview={nav.autoPreview || nav.autoPrint} autoPrint={nav.autoPrint} onNav={onNav} />;
       case 'invoice-list': return <InvoiceList onNav={onNav} />;
       case 'invoice-create': return <InvoiceForm onNav={onNav} fromQuotationId={nav.fromQuotationId} />;
       case 'invoice-edit': return <InvoiceForm editId={nav.id} onNav={onNav} />;

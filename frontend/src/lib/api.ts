@@ -11,7 +11,7 @@ const tableMap: Record<string, string> = {
   'quotations': 'quotations'
 };
 
-class QueryBuilder {
+class QueryBuilder implements PromiseLike<any> {
   table: string;
   endpoint: string;
   _action: string = 'select';
@@ -28,7 +28,7 @@ class QueryBuilder {
     this.endpoint = `${API_BASE}/${tableMap[table] || table}`;
   }
 
-  select(fields: string = '*', options?: { count?: string }) {
+  select(_fields: string = '*', options?: { count?: string }) {
     this._action = 'select';
     if (options && options.count) this._countMode = true;
     return this;
@@ -82,7 +82,7 @@ class QueryBuilder {
     return this;
   }
 
-  async then(resolve: any, reject: any) {
+  async execute(): Promise<any> {
     try {
       if (this._action === 'select') {
         const res = await fetch(this.endpoint);
@@ -132,9 +132,9 @@ class QueryBuilder {
         }
 
         if (this._single) {
-          resolve({ data: records.length > 0 ? records[0] : null, error: null, count });
+          return { data: records.length > 0 ? records[0] : null, error: null, count };
         } else {
-          resolve({ data: records, error: null, count: this._countMode ? count : null });
+          return { data: records, error: null, count: this._countMode ? count : null };
         }
       } else {
         // Mutations
@@ -168,11 +168,18 @@ class QueryBuilder {
 
         if (!res.ok) throw new Error('Mutation failed');
         const data = await res.json();
-        resolve({ data, error: null });
+        return { data, error: null };
       }
     } catch (error) {
-      resolve({ data: null, error });
+      return { data: null, error };
     }
+  }
+
+  then<TResult1 = any, TResult2 = never>(
+    onfulfilled?: ((value: any) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null
+  ): Promise<TResult1 | TResult2> {
+    return this.execute().then(onfulfilled, onrejected);
   }
 }
 
